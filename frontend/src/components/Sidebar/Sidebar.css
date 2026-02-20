@@ -1,0 +1,29 @@
+/* Sidebar.css */
+
+.sidebar-header {
+  background-color: #001529; /* cùng với theme dark của antd */
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.sidebar-footer {
+  background-color: #001529;
+  text-align: center;
+}
+
+/* Hover + active menu item styles có thể override antd mặc định */
+
+.ant-menu-dark .ant-menu-item:hover {
+  background-color: #1890ff !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #096dd9 !important;
+}
+
+/* Nếu muốn thêm tooltip cho menu item khi collapsed */
+
+.ant-menu-inline-collapsed > .ant-menu-item .ant-tooltip-inner {
+  background-color: #333;
+  color: #fff;
+}
