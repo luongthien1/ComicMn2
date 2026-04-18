@@ -1,0 +1,26 @@
+{
+  "name": "basewed",
+  "version": "1.0.0",
+  "description": "The base wed side with frontend and backend for all thing",
+  "homepage": "https://github.com/luongthien1/BaseWed#readme",
+  "bugs": {
+    "url": "https://github.com/luongthien1/BaseWed/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luongthien1/BaseWed.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "backend": ".\\venv\\Scripts\\python -m uvicorn backend.main:app --reload",
+    "worker": ".\\venv\\Scripts\\python -m backend.worker",
+    "frontend": "npm run dev --prefix frontend",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run worker\""
+  },
+  "dependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

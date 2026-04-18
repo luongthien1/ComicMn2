@@ -26,6 +26,15 @@ Install pre-commit (need to run ```uv sync``` before)
 
 ```pre-commit install```
 
+### Node run
+
+At the project root folder:
+```
+npm install concurrently
+
+npm run dev
+```
+
 ## Frontend
 
 React with Typescript, main css framework is antd (ant design)
