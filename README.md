@@ -14,6 +14,7 @@ Install with uv: uv install ...
 ```python -m venv .venv```
 
 2. Active the venv
+
 3. Install uv:
 
 ```pip install uv```
@@ -26,6 +27,20 @@ Install pre-commit (need to run ```uv sync``` before)
 
 ```pre-commit install```
 
+
+
+## Frontend
+
+React with Typescript, main css framework is antd (ant design)
+
+Routes in routes folder, with routes_config with setting url, and other folder is the main screen be set in routes_config.
+
+### Npm install
+
+Cd into frontend folder, run:
+
+```npm install```
+
 ### Node run
 
 At the project root folder:
@@ -34,9 +49,3 @@ npm install concurrently
 
 npm run dev
 ```
-
-## Frontend
-
-React with Typescript, main css framework is antd (ant design)
-
-Routes in routes folder, with routes_config with setting url, and other folder is the main screen be set in routes_config.
