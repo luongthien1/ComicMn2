@@ -26,17 +26,11 @@ const LayoutApp = () => {
 
   const segments = location.pathname.split('/').filter(Boolean);
 
-  const breadcrumbItems = [
-    { path: '/', label: 'Home' },
-    ...segments.map((seg, idx) => {
-      const url = '/' + segments.slice(0, idx + 1).join('/');
-      const label = PATH_TITLE_MAP[url] ?? seg;
-      return { path: url, label };
-    }),
-  ];
-
-  // Không lặp lại "Home" nếu đang ở trang chủ
-  const visibleItems = breadcrumbItems.length > 1 ? breadcrumbItems : breadcrumbItems.slice(0, 1);
+  const visibleItems = segments.map((seg, idx) => {
+    const url = '/' + segments.slice(0, idx + 1).join('/');
+    const label = PATH_TITLE_MAP[url] ?? seg;
+    return { path: url, label };
+  });
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -56,8 +50,8 @@ const LayoutApp = () => {
             height: 48,
             lineHeight: '48px',
             padding: '0 16px',
-            background: '#fff',
-            borderBottom: '1px solid #f0f0f0',
+            background: 'var(--c-bg)',
+            borderBottom: '1px solid var(--c-fill)',
             display: 'flex',
             alignItems: 'center',
             gap: 12,
@@ -76,11 +70,11 @@ const LayoutApp = () => {
           </Breadcrumb>
         </Header>
 
-        <Content style={{ margin: 12, padding: 16, background: '#fff', borderRadius: 4 }}>
+        <Content style={{ margin: 12, padding: 16, background: 'var(--c-bg)', borderRadius: 4 }}>
           <Outlet />
         </Content>
 
-        <Footer style={{ textAlign: 'center', padding: '10px 16px', fontSize: 12, color: '#8c8c8c' }}>
+        <Footer style={{ textAlign: 'center', padding: '10px 16px', fontSize: 12, color: 'var(--c-text-3)' }}>
           ©2026 ComicMn2
         </Footer>
       </Layout>

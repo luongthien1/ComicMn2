@@ -1,7 +1,6 @@
-import { BookOutlined, HomeOutlined, SettingOutlined } from "@ant-design/icons";
+import { BookOutlined, SettingOutlined } from "@ant-design/icons";
 
 import React from "react";
-import Home from "@/routes/Home";
 import ComicList from "@/routes/Comics/List";
 import ComicDetail from "@/routes/Comics/Detail";
 import ChapterEditor from "@/routes/Comics/ChapterEditor";
@@ -29,7 +28,6 @@ class NavigationItem {
 }
 
 const routes_config = [
-    new NavigationItem("home-menu", "Home", "/", <HomeOutlined />, <Home />),
     new NavigationItem("comics-menu", "Truyện Tranh", "/comics", <BookOutlined />, <ComicList />),
     new NavigationItem("comic-detail", "Chi tiết truyện", "/comics/:id", undefined, <ComicDetail />, undefined, false),
     new NavigationItem("chapter-editor", "Viết chương", "/comics/:comicId/chapters/:chapterId", undefined, <ChapterEditor />, undefined, false),

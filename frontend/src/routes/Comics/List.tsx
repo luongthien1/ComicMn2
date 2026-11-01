@@ -54,12 +54,12 @@ function CoverPlaceholder({ width, height }: { width: number; height: number }) 
       style={{
         width,
         height,
-        background: "#f0f0f0",
+        background: "var(--c-fill)",
         borderRadius: 4,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "#ccc",
+        color: "var(--c-text-4)",
         fontSize: 11,
         flexShrink: 0,
       }}

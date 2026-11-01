@@ -13,7 +13,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   const v = Math.max(1, Math.min(5, Math.round(value)));
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-      <Text style={{ fontSize: 11, width: 92, color: "#595959" }}>{label}</Text>
+      <Text style={{ fontSize: 11, width: 92, color: "var(--c-text-2)" }}>{label}</Text>
       <div style={{ flex: 1, display: "flex", gap: 3 }}>
         {[1, 2, 3, 4, 5].map((i) => (
           <div
@@ -22,7 +22,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
               flex: 1,
               height: 6,
               borderRadius: 3,
-              background: i <= v ? SCORE_COLOR[v - 1] : "#f0f0f0",
+              background: i <= v ? SCORE_COLOR[v - 1] : "var(--c-fill)",
             }}
           />
         ))}
@@ -46,8 +46,8 @@ function PointList({
         <div
           key={i}
           style={{
-            background: "#fff",
-            border: "1px solid #f0f0f0",
+            background: "var(--c-bg)",
+            border: "1px solid var(--c-fill)",
             borderLeft: `3px solid ${isIssue ? "#faad14" : "#52c41a"}`,
             borderRadius: 6,
             padding: "10px 12px",
@@ -61,8 +61,8 @@ function PointList({
             <div
               style={{
                 fontSize: 11,
-                color: "#595959",
-                background: "#fafafa",
+                color: "var(--c-text-2)",
+                background: "var(--c-bg-soft)",
                 borderRadius: 4,
                 padding: "6px 8px",
                 lineHeight: 1.6,
@@ -129,8 +129,8 @@ export function ReviewPanel({
   const labelOf = (key: string) => aspectDefs.find((a) => a.key === key)?.label ?? key;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#f8f9fa" }}>
-      <div style={{ padding: "10px 12px", background: "#fff", borderBottom: "1px solid #f0f0f0" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--c-bg-soft)" }}>
+      <div style={{ padding: "10px 12px", background: "var(--c-bg)", borderBottom: "1px solid var(--c-fill)" }}>
         <Segmented
           size="small"
           block
@@ -187,7 +187,7 @@ export function ReviewPanel({
         {loading ? (
           <div style={{ textAlign: "center", paddingTop: 40 }}>
             <Spin />
-            <div style={{ marginTop: 10, fontSize: 12, color: "#8c8c8c" }}>
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--c-text-3)" }}>
               Đang phân tích…
             </div>
           </div>
@@ -207,8 +207,8 @@ export function ReviewPanel({
             {result.truncated && (
               <div
                 style={{
-                  background: "#fffbe6",
-                  border: "1px solid #ffe58f",
+                  background: "var(--c-warn-bg)",
+                  border: "1px solid var(--c-warn-border)",
                   borderRadius: 4,
                   padding: "6px 10px",
                   fontSize: 11,
@@ -228,8 +228,8 @@ export function ReviewPanel({
             {result.score && Object.keys(result.score).length > 0 && (
               <div
                 style={{
-                  background: "#fff",
-                  border: "1px solid #f0f0f0",
+                  background: "var(--c-bg)",
+                  border: "1px solid var(--c-fill)",
                   borderRadius: 6,
                   padding: "12px 14px",
                   marginBottom: 14,

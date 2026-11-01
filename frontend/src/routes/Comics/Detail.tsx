@@ -7,7 +7,6 @@ import {
   ArrowLeftOutlined,
   DeleteOutlined,
   EditOutlined,
-  FormOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
 import {
@@ -93,18 +92,10 @@ export default function ComicDetail() {
     {
       title: "Thao tác",
       key: "actions",
-      width: 220,
+      width: 160,
       render: (_: any, record: Chapter) => (
-        <Space>
-          <Button
-            icon={<FormOutlined />}
-            size="small"
-            type="primary"
-            ghost
-            onClick={() => navigate(`/comics/${id}/chapters/${record.id}`)}
-          >
-            Viết
-          </Button>
+        // Chặn click lan lên dòng (dòng = mở trang viết); popup Popconfirm cũng lan qua portal
+        <Space onClick={(e) => e.stopPropagation()}>
           <Button
             icon={<EditOutlined />}
             size="small"
@@ -175,12 +166,12 @@ export default function ComicDetail() {
                 style={{
                   width: 120,
                   height: 160,
-                  background: "#f5f5f5",
+                  background: "var(--c-bg-hover)",
                   borderRadius: 4,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#bbb",
+                  color: "var(--c-text-4)",
                   fontSize: 12,
                 }}
               >
@@ -227,6 +218,10 @@ export default function ComicDetail() {
           columns={chapterColumns}
           dataSource={comic.chapters}
           pagination={{ pageSize: 20 }}
+          onRow={(record) => ({
+            onClick: () => navigate(`/comics/${id}/chapters/${record.id}`),
+            style: { cursor: "pointer" },
+          })}
         />
       </Card>
 

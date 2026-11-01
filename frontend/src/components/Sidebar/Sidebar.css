@@ -11,14 +11,10 @@
   text-align: center;
 }
 
-/* Hover + active menu item styles có thể override antd mặc định */
+/* Sidebar theo theme sáng/tối; màu menu đặt trong ThemeContext (token Menu) */
 
-.ant-menu-dark .ant-menu-item:hover {
-  background-color: #1890ff !important;
-}
-
-.ant-menu-dark .ant-menu-item-selected {
-  background-color: #096dd9 !important;
+.app-sider {
+  border-right: 1px solid var(--c-fill);
 }
 
 /* Nếu muốn thêm tooltip cho menu item khi collapsed */
@@ -39,21 +35,43 @@
   padding: 6px 0;
   border: none;
   border-radius: 4px;
-  background-color: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
+  background-color: var(--c-bg-hover);
+  color: var(--c-text-2);
   font-size: 14px;
   cursor: pointer;
   transition: background-color 0.2s, color 0.2s;
 }
 
 .sidebar-toggle:hover {
-  background-color: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background-color: var(--c-fill);
+  color: var(--c-text);
 }
 
 .sidebar-toggle:focus-visible {
-  outline: 2px solid #1890ff;
+  outline: 2px solid var(--c-accent);
   outline-offset: 1px;
+}
+
+/* Sider: cột dọc để nút theme nằm ở đáy */
+
+.app-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-sider .ant-menu {
+  flex: 1;
+  border-inline-end: none !important; /* viền phải đã có ở .app-sider */
+}
+
+.sidebar-bottom {
+  padding-top: 8px;
+  border-top: 1px solid var(--c-fill);
+}
+
+.sidebar-theme {
+  gap: 8px;
+  margin-top: 0;
 }
 
 /* Menu gọn hơn để vừa với sidebar hẹp */

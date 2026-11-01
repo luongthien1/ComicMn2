@@ -1,0 +1,64 @@
+/*
+ * Màu dùng chung cho style inline/CSS tự viết. Component antd tự đổi theo
+ * ConfigProvider (darkAlgorithm) — các biến này lo phần còn lại.
+ * ThemeProvider đặt <html data-theme="light|dark">.
+ */
+:root {
+  color-scheme: light;
+
+  --c-bg: #ffffff;          /* nền thẻ, editor, panel */
+  --c-bg-layout: #f5f5f5;   /* nền trang */
+  --c-bg-soft: #f8f9fa;     /* nền panel phụ (sidebar phải, Q&A) */
+  --c-bg-hover: #f5f5f5;
+  --c-fill: #f0f0f0;        /* mục đang chọn, viền nhạt */
+  --c-border: #d9d9d9;
+
+  --c-text: rgba(0, 0, 0, 0.88);
+  --c-text-2: #595959;
+  --c-text-3: #8c8c8c;
+  --c-text-4: #bfbfbf;
+
+  /* Nút/nhãn "đen" của giao diện đơn sắc — đảo màu ở chế độ tối */
+  --c-accent: #000000;
+  --c-on-accent: #ffffff;
+
+  --c-warn-bg: #fffbe6;
+  --c-warn-border: #ffe58f;
+  --c-info-bg: #f0f5ff;
+
+  --c-scroll-track: #f1f1f1;
+  --c-scroll-thumb: #c1c1c1;
+  --c-scroll-thumb-hover: #a8a8a8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-bg: #141414;
+  --c-bg-layout: #000000;
+  --c-bg-soft: #1a1a1a;
+  --c-bg-hover: #262626;
+  --c-fill: #303030;
+  --c-border: #424242;
+
+  --c-text: rgba(255, 255, 255, 0.85);
+  --c-text-2: #bfbfbf;
+  --c-text-3: #8c8c8c;
+  --c-text-4: #595959;
+
+  --c-accent: #f0f0f0;
+  --c-on-accent: #141414;
+
+  --c-warn-bg: #2b2111;
+  --c-warn-border: #594214;
+  --c-info-bg: #111a2c;
+
+  --c-scroll-track: #1f1f1f;
+  --c-scroll-thumb: #434343;
+  --c-scroll-thumb-hover: #595959;
+}
+
+body {
+  background: var(--c-bg-layout);
+  color: var(--c-text);
+}

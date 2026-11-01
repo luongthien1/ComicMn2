@@ -6,6 +6,7 @@
   font-size: 15px;
   line-height: 1.8;
   cursor: text;
+  color: var(--c-text);
 }
 
 .comic-editor p { margin: 0 0 8px; }
@@ -29,7 +30,7 @@
 }
 
 .comic-editor .ProseMirror-selectednode {
-  outline: 2px solid #000;
+  outline: 2px solid var(--c-accent);
   border-radius: 4px;
 }
 

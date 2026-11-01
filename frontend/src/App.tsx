@@ -1,6 +1,6 @@
 import { Component } from "react";
-import { Routes, Route, Outlet } from "react-router-dom";
-import { ConfigProvider, theme } from "antd";
+import { Routes, Route, Outlet, Navigate } from "react-router-dom";
+import { ThemeProvider } from "./theme/ThemeContext";
 import LayoutApp from "./layout/generalLayout";
 import CategoryPage from "./components/CategoryPage";
 import { NavigationItem, routes_config } from "./routes/routes_config";
@@ -42,30 +42,19 @@ class App extends Component {
 
   render() {
     return (
-      <ConfigProvider
-        theme={{
-          algorithm: theme.compactAlgorithm,
-          token: {
-            fontSize: 15,
-            borderRadius: 4,
-          },
-          components: {
-            Table: {
-              cellPaddingBlock: 6,
-              cellPaddingInline: 10,
-            },
-          },
-        }}
-      >
+      <ThemeProvider>
       <AlertProvider>
         <Routes>
           {/* LayoutApp là khung: sidebar + top + content */}
           <Route path="/" element={<LayoutApp />}>
+            {/* Không còn trang Home — vào thẳng danh sách truyện */}
+            <Route index element={<Navigate to="/comics" replace />} />
             {this.renderRoutes(routes_config)}
+            <Route path="*" element={<Navigate to="/comics" replace />} />
           </Route>
         </Routes>
       </AlertProvider>
-      </ConfigProvider>
+      </ThemeProvider>
     );
   }
 }

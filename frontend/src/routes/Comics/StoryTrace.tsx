@@ -40,11 +40,11 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
   return (
     <div
       style={{
-        border: "1px solid #f0f0f0",
+        border: "1px solid var(--c-fill)",
         borderLeft: `3px solid ${style.color}`,
         borderRadius: 6,
         marginBottom: 10,
-        background: "#fff",
+        background: "var(--c-bg)",
       }}
     >
       <div
@@ -57,7 +57,7 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
           cursor: expandable ? "pointer" : "default",
         }}
       >
-        <span style={{ color: "#bfbfbf", fontSize: 12, minWidth: 20 }}>{index + 1}</span>
+        <span style={{ color: "var(--c-text-4)", fontSize: 12, minWidth: 20 }}>{index + 1}</span>
         <span style={{ color: style.color }}>{style.icon}</span>
         <span style={{ fontWeight: 500, fontSize: 13, flex: 1 }}>{step.label}</span>
 
@@ -74,7 +74,7 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
       </div>
 
       {step.note && (
-        <div style={{ padding: "0 14px 10px 44px", fontSize: 12, color: "#595959" }}>
+        <div style={{ padding: "0 14px 10px 44px", fontSize: 12, color: "var(--c-text-2)" }}>
           {step.note}
         </div>
       )}
@@ -83,8 +83,8 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
         <div style={{ padding: "0 14px 12px 44px" }}>
           <pre
             style={{
-              background: "#fafafa",
-              border: "1px solid #f0f0f0",
+              background: "var(--c-bg-soft)",
+              border: "1px solid var(--c-fill)",
               borderRadius: 4,
               padding: "8px 10px",
               fontSize: 11,
@@ -96,7 +96,7 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
             {step.cypher}
           </pre>
           {step.params && Object.keys(step.params).length > 0 && (
-            <div style={{ marginTop: 6, fontSize: 11, color: "#8c8c8c" }}>
+            <div style={{ marginTop: 6, fontSize: 11, color: "var(--c-text-3)" }}>
               Tham số:{" "}
               {Object.entries(step.params).map(([k, v]) => (
                 <Tag key={k} style={{ fontSize: 10, marginRight: 4 }}>
@@ -117,12 +117,12 @@ function StepCard({ step, index }: { step: TraceStep; index: number }) {
             <div
               key={i}
               style={{
-                background: "#fafafa",
+                background: "var(--c-bg-soft)",
                 borderRadius: 4,
                 padding: "6px 10px",
                 fontSize: 11,
                 marginTop: 4,
-                color: "#434343",
+                color: "var(--c-text-2)",
                 lineHeight: 1.6,
               }}
             >
@@ -144,8 +144,8 @@ function TraceView({ trace }: { trace: TraceDetail }) {
     <div>
       <div
         style={{
-          background: "#fff",
-          border: "1px solid #f0f0f0",
+          background: "var(--c-bg)",
+          border: "1px solid var(--c-fill)",
           borderRadius: 6,
           padding: "14px 16px",
           marginBottom: 16,
@@ -163,7 +163,7 @@ function TraceView({ trace }: { trace: TraceDetail }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: 8, fontSize: 12, color: "#8c8c8c" }}>
+      <div style={{ marginBottom: 8, fontSize: 12, color: "var(--c-text-3)" }}>
         Bấm vào từng bước để xem câu Cypher và kết quả.
       </div>
 
@@ -179,8 +179,8 @@ function TraceView({ trace }: { trace: TraceDetail }) {
           {showPrompt && (
             <pre
               style={{
-                background: "#fafafa",
-                border: "1px solid #f0f0f0",
+                background: "var(--c-bg-soft)",
+                border: "1px solid var(--c-fill)",
                 borderRadius: 4,
                 padding: 12,
                 fontSize: 11,
@@ -201,8 +201,8 @@ function TraceView({ trace }: { trace: TraceDetail }) {
         <div
           style={{
             marginTop: 16,
-            background: "#fff",
-            border: "1px solid #f0f0f0",
+            background: "var(--c-bg)",
+            border: "1px solid var(--c-fill)",
             borderLeft: "3px solid #fa8c16",
             borderRadius: 6,
             padding: "12px 16px",
@@ -255,13 +255,13 @@ export default function StoryTrace() {
   }, [traceId]);
 
   return (
-    <div style={{ display: "flex", height: "100%", background: "#f8f9fa" }}>
+    <div style={{ display: "flex", height: "100%", background: "var(--c-bg-soft)" }}>
       {/* Danh sách các lần chat */}
       <div
         style={{
           width: 260,
-          borderRight: "1px solid #f0f0f0",
-          background: "#fff",
+          borderRight: "1px solid var(--c-fill)",
+          background: "var(--c-bg)",
           display: "flex",
           flexDirection: "column",
         }}
@@ -269,7 +269,7 @@ export default function StoryTrace() {
         <div
           style={{
             padding: "12px 14px",
-            borderBottom: "1px solid #f0f0f0",
+            borderBottom: "1px solid var(--c-fill)",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -306,9 +306,9 @@ export default function StoryTrace() {
                 onClick={() => setParams({ trace: t.id })}
                 style={{
                   padding: "10px 14px",
-                  borderBottom: "1px solid #fafafa",
+                  borderBottom: "1px solid var(--c-bg-soft)",
                   cursor: "pointer",
-                  background: t.id === traceId ? "#f0f5ff" : undefined,
+                  background: t.id === traceId ? "var(--c-info-bg)" : undefined,
                 }}
               >
                 <div

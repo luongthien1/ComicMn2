@@ -1,8 +1,9 @@
-import { Layout, Menu } from "antd";
-import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
+import { Layout, Menu, Tooltip } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined, MoonOutlined, SunOutlined } from "@ant-design/icons";
 import { Link, useLocation } from "react-router-dom";
 import { routes_config, NavigationItem } from "@/routes/routes_config";
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "./constants";
+import { useTheme } from "@/theme/ThemeContext";
 import "./Sidebar.css";
 
 const { Sider } = Layout;
@@ -14,6 +15,8 @@ type SidebarProps = {
 
 const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
+  const { mode, toggle } = useTheme();
+  const isDark = mode === "dark";
   const selectedKey = location.pathname === "/" ? "/" : location.pathname;
 
   return (
@@ -23,6 +26,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       collapsed={collapsed}
       width={SIDEBAR_WIDTH}
       collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
+      className="app-sider"
       style={{
         overflow: "auto",
         height: "100vh",
@@ -37,7 +41,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           height: 32,
           margin: 12,
           textAlign: "center",
-          color: "#fff",
+          color: "var(--c-text)",
           fontSize: collapsed ? 16 : 15,
           fontWeight: 600,
           lineHeight: "32px",
@@ -45,7 +49,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
           overflow: "hidden",
         }}
       >
-        {collapsed ? "C" : "Company"}
+        {collapsed ? "C" : "Comic Writer"}
       </div>
 
       {onToggle && (
@@ -61,13 +65,27 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
       )}
 
       <Menu
-        theme="dark"
         mode="inline"
         selectedKeys={[selectedKey]}
         defaultOpenKeys={["/settings"]}
       >
         {renderMenu({ routes: routes_config })}
       </Menu>
+
+      {/* Đẩy xuống đáy sidebar (children của Sider là flex column — xem Sidebar.css) */}
+      <div className="sidebar-bottom">
+        <Tooltip title={isDark ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối"} placement="right">
+          <button
+            type="button"
+            className="sidebar-toggle sidebar-theme"
+            aria-label={isDark ? "Đang dùng giao diện tối — bấm để chuyển sang sáng" : "Đang dùng giao diện sáng — bấm để chuyển sang tối"}
+            onClick={toggle}
+          >
+            {isDark ? <MoonOutlined /> : <SunOutlined />}
+            {!collapsed && <span>{isDark ? "Tối" : "Sáng"}</span>}
+          </button>
+        </Tooltip>
+      </div>
     </Sider>
   );
 };

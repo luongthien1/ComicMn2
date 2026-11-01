@@ -85,15 +85,15 @@ function Toolbar({ editor, onInsertUrl }: { editor: Editor; onInsertUrl: () => v
   const getStyle = (name: string, attrs?: object) => {
     const active = editor.isActive(name, attrs);
     return {
-      backgroundColor: active ? "#000" : "transparent",
-      color: active ? "#fff" : "rgba(0,0,0,0.88)",
+      backgroundColor: active ? "var(--c-accent)" : "transparent",
+      color: active ? "var(--c-on-accent)" : "var(--c-text)",
       borderColor: "transparent",
       boxShadow: "none"
     };
   };
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "5px 10px", borderBottom: "1px solid #f0f0f0", flexWrap: "wrap", background: "#fafafa" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "5px 10px", borderBottom: "1px solid var(--c-fill)", flexWrap: "wrap", background: "var(--c-bg-soft)" }}>
       <Tooltip title="Đậm (Ctrl+B)">
         <Button size="small" type="text" style={getStyle("bold")} icon={<BoldOutlined />} onClick={() => editor.chain().focus().toggleBold().run()} />
       </Tooltip>
@@ -180,7 +180,7 @@ function AssetsTab({
               <div
                 key={a.url}
                 title={a.name}
-                style={{ position: "relative", cursor: "pointer", borderRadius: 4, overflow: "hidden", border: "1px solid #f0f0f0" }}
+                style={{ position: "relative", cursor: "pointer", borderRadius: 4, overflow: "hidden", border: "1px solid var(--c-fill)" }}
                 onClick={() => onInsert(a.url)}
               >
                 <img src={a.url} alt={a.name} style={{ width: "100%", height: 76, objectFit: "cover", display: "block" }} />
@@ -232,15 +232,15 @@ function ChaptersTab({ comicId, currentChapterId }: { comicId: number; currentCh
           style={{
             padding: "8px 12px",
             cursor: "pointer",
-            background: ch.id === currentChapterId ? "#f0f0f0" : undefined,
-            borderLeft: ch.id === currentChapterId ? "3px solid #000" : "3px solid transparent",
+            background: ch.id === currentChapterId ? "var(--c-fill)" : undefined,
+            borderLeft: ch.id === currentChapterId ? "3px solid var(--c-accent)" : "3px solid transparent",
             fontSize: 13,
           }}
-          onMouseEnter={(e) => { if (ch.id !== currentChapterId) (e.currentTarget as HTMLElement).style.background = "#f5f5f5"; }}
+          onMouseEnter={(e) => { if (ch.id !== currentChapterId) (e.currentTarget as HTMLElement).style.background = "var(--c-bg-hover)"; }}
           onMouseLeave={(e) => { if (ch.id !== currentChapterId) (e.currentTarget as HTMLElement).style.background = ""; }}
         >
           <span style={{ fontWeight: ch.id === currentChapterId ? 600 : 400 }}>Chương {ch.number}</span>
-          {ch.title && <span style={{ color: "#8c8c8c", marginLeft: 6 }}>{ch.title}</span>}
+          {ch.title && <span style={{ color: "var(--c-text-3)", marginLeft: 6 }}>{ch.title}</span>}
         </div>
       ))}
     </div>
@@ -402,15 +402,15 @@ function QATab({ chapterId, comicId, chapterNumber }: {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "#f8f9fa" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", background: "var(--c-bg-soft)" }}>
       {/* Trạng thái đồ thị tri thức */}
       <div
         style={{
           padding: "6px 10px",
-          borderBottom: "1px solid #f0f0f0",
-          background: "#fff",
+          borderBottom: "1px solid var(--c-fill)",
+          background: "var(--c-bg)",
           fontSize: 11,
-          color: "#8c8c8c",
+          color: "var(--c-text-3)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -466,8 +466,8 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                   />
                 </Tooltip>
                 <div style={{ 
-                  background: "#000", 
-                  color: "#fff", 
+                  background: "var(--c-accent)", 
+                  color: "var(--c-on-accent)", 
                   padding: "8px 12px", 
                   borderRadius: "12px 12px 2px 12px", 
                   fontSize: 13, 
@@ -487,8 +487,8 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                   <div style={{ 
                     flex: 1, 
                     maxWidth: "75%", 
-                    background: "#fff", 
-                    border: "1px solid #d9d9d9", 
+                    background: "var(--c-bg)", 
+                    border: "1px solid var(--c-border)", 
                     borderRadius: "12px 12px 12px 2px", 
                     padding: 8, 
                     boxShadow: "0 2px 8px rgba(0,0,0,0.08)" 
@@ -501,20 +501,20 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                       style={{ fontSize: 13, border: "none", outline: "none", padding: 0, boxShadow: "none", resize: "none" }}
                       autoFocus
                     />
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginTop: 6, borderTop: "1px solid #f0f0f0", paddingTop: 6 }}>
-                      <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => saveAnswer(item.id)} style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}>Lưu</Button>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 4, marginTop: 6, borderTop: "1px solid var(--c-fill)", paddingTop: 6 }}>
+                      <Button size="small" type="primary" icon={<CheckOutlined />} onClick={() => saveAnswer(item.id)} style={{ backgroundColor: "var(--c-accent)", borderColor: "var(--c-accent)", color: "var(--c-on-accent)" }}>Lưu</Button>
                       <Button size="small" icon={<CloseOutlined />} onClick={() => setEditingId(null)}>Hủy</Button>
                     </div>
                   </div>
                 ) : loadingId === item.id ? (
                   <div style={{ 
-                    background: "#fff", 
-                    color: "#8c8c8c", 
+                    background: "var(--c-bg)", 
+                    color: "var(--c-text-3)", 
                     padding: "8px 12px", 
                     borderRadius: "12px 12px 12px 2px", 
                     fontSize: 13, 
                     maxWidth: "75%", 
-                    border: "1px solid #f0f0f0",
+                    border: "1px solid var(--c-fill)",
                     boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                     display: "flex",
                     alignItems: "center",
@@ -527,8 +527,8 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                   <div 
                     onClick={() => startEditing(item)}
                     style={{ 
-                      background: "#fff", 
-                      color: "#262626", 
+                      background: "var(--c-bg)", 
+                      color: "var(--c-text)", 
                       padding: "8px 12px", 
                       borderRadius: "12px 12px 12px 2px", 
                       fontSize: 13, 
@@ -537,7 +537,7 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                       cursor: "pointer",
                       boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       position: "relative",
-                      border: "1px solid #f0f0f0"
+                      border: "1px solid var(--c-fill)"
                     }}
                     title="Click để chỉnh sửa câu trả lời"
                   >
@@ -547,9 +547,9 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                         style={{
                           marginTop: 6,
                           paddingTop: 6,
-                          borderTop: "1px solid #f5f5f5",
+                          borderTop: "1px solid var(--c-bg-hover)",
                           fontSize: 11,
-                          color: "#8c8c8c",
+                          color: "var(--c-text-3)",
                           display: "flex",
                           alignItems: "center",
                           gap: 8,
@@ -575,7 +575,7 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                         )}
                       </div>
                     )}
-                    <div style={{ position: "absolute", bottom: 2, right: 4, fontSize: 10, color: "#bfbfbf" }}>
+                    <div style={{ position: "absolute", bottom: 2, right: 4, fontSize: 10, color: "var(--c-text-4)" }}>
                       <EditOutlined />
                     </div>
                   </div>
@@ -583,14 +583,14 @@ function QATab({ chapterId, comicId, chapterNumber }: {
                   <div 
                     onClick={() => startEditing(item)}
                     style={{ 
-                      border: "1px dashed #d9d9d9", 
-                      color: "#8c8c8c", 
+                      border: "1px dashed var(--c-border)", 
+                      color: "var(--c-text-3)", 
                       padding: "8px 12px", 
                       borderRadius: "12px 12px 12px 2px", 
                       fontSize: 13, 
                       maxWidth: "75%", 
                       cursor: "pointer",
-                      background: "#fff",
+                      background: "var(--c-bg)",
                       userSelect: "none"
                     }}
                   >
@@ -608,7 +608,7 @@ function QATab({ chapterId, comicId, chapterNumber }: {
       </div>
 
       {/* Input Area */}
-      <div style={{ borderTop: "1px solid #f0f0f0", padding: "10px 12px", flexShrink: 0, background: "#fff", display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ borderTop: "1px solid var(--c-fill)", padding: "10px 12px", flexShrink: 0, background: "var(--c-bg)", display: "flex", gap: 8, alignItems: "center" }}>
         <Input 
           placeholder="Nhập câu hỏi..." 
           value={inputVal} 
@@ -624,8 +624,9 @@ function QATab({ chapterId, comicId, chapterNumber }: {
           disabled={!inputVal.trim()} 
           style={{ 
             flexShrink: 0, 
-            backgroundColor: inputVal.trim() ? "#000" : undefined, 
-            borderColor: inputVal.trim() ? "#000" : undefined 
+            backgroundColor: inputVal.trim() ? "var(--c-accent)" : undefined, 
+            color: inputVal.trim() ? "var(--c-on-accent)" : undefined,
+            borderColor: inputVal.trim() ? "var(--c-accent)" : undefined 
           }}
         />
       </div>
@@ -702,10 +703,10 @@ function Sidebar({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: isActive ? "#000" : "#fff",
-                  color: isActive ? "#fff" : "#000",
-                  border: "1px solid #d9d9d9",
-                  borderRight: isActive ? "1px solid transparent" : "1px solid #d9d9d9",
+                  background: isActive ? "var(--c-accent)" : "var(--c-bg)",
+                  color: isActive ? "var(--c-on-accent)" : "var(--c-text)",
+                  border: "1px solid var(--c-border)",
+                  borderRight: isActive ? "1px solid transparent" : "1px solid var(--c-border)",
                   borderRadius: "6px 0 0 6px",
                   cursor: "pointer",
                   fontSize: "16px",
@@ -716,10 +717,10 @@ function Sidebar({
                   zIndex: 2,
                 }}
                 onMouseEnter={(e) => {
-                  if (!isActive) e.currentTarget.style.background = "#f5f5f5";
+                  if (!isActive) e.currentTarget.style.background = "var(--c-bg-hover)";
                 }}
                 onMouseLeave={(e) => {
-                  if (!isActive) e.currentTarget.style.background = "#fff";
+                  if (!isActive) e.currentTarget.style.background = "var(--c-bg)";
                 }}
               >
                 {tab.icon}
@@ -735,13 +736,13 @@ function Sidebar({
         opacity: isOpen ? 1 : 0,
         visibility: isOpen ? "visible" : "hidden",
         transition: "opacity 0.15s ease, visibility 0.2s",
-        border: isOpen ? "1px solid #d9d9d9" : "none",
+        border: isOpen ? "1px solid var(--c-border)" : "none",
         borderLeft: "none",
         borderRadius: "0 4px 4px 0",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
-        background: "#fff",
+        background: "var(--c-bg)",
         height: "100%",
         boxSizing: "border-box",
       }}>
@@ -750,9 +751,9 @@ function Sidebar({
           padding: "10px 12px", 
           fontWeight: 600, 
           fontSize: "13px", 
-          borderBottom: "1px solid #f0f0f0", 
-          background: "#fafafa",
-          color: "#262626",
+          borderBottom: "1px solid var(--c-fill)", 
+          background: "var(--c-bg-soft)",
+          color: "var(--c-text)",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -764,7 +765,7 @@ function Sidebar({
             type="text" 
             icon={<CloseOutlined style={{ fontSize: 10 }} />} 
             onClick={() => setIsOpen(false)}
-            style={{ color: "#8c8c8c" }}
+            style={{ color: "var(--c-text-3)" }}
           />
         </div>
 
@@ -878,14 +879,14 @@ function RevisionsModal({
           disabled={selected == null}
         >
           <Button type="primary" icon={<RollbackOutlined />} disabled={selected == null} loading={restoring}
-            style={{ backgroundColor: "#000", borderColor: "#000" }}>
+            style={{ backgroundColor: "var(--c-accent)", borderColor: "var(--c-accent)", color: "var(--c-on-accent)" }}>
             Khôi phục
           </Button>
         </Popconfirm>,
       ]}
     >
       <div style={{ display: "flex", gap: 12, height: "60vh" }}>
-        <div style={{ width: 260, overflowY: "auto", borderRight: "1px solid #f0f0f0", flexShrink: 0 }}>
+        <div style={{ width: 260, overflowY: "auto", borderRight: "1px solid var(--c-fill)", flexShrink: 0 }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: 24 }}><Spin size="small" /></div>
           ) : items.length === 0 ? (
@@ -897,19 +898,19 @@ function RevisionsModal({
               style={{
                 padding: "8px 10px",
                 cursor: "pointer",
-                background: r.id === selected ? "#f0f0f0" : undefined,
-                borderLeft: r.id === selected ? "3px solid #000" : "3px solid transparent",
+                background: r.id === selected ? "var(--c-fill)" : undefined,
+                borderLeft: r.id === selected ? "3px solid var(--c-accent)" : "3px solid transparent",
               }}
             >
               <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtTime(r.created_at)}</div>
-              <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+              <div style={{ fontSize: 12, color: "var(--c-text-3)" }}>
                 <Tag style={{ marginRight: 6 }}>{REASON_LABEL[r.reason] ?? r.reason}</Tag>
                 {r.char_count.toLocaleString("vi-VN")} ký tự
               </div>
             </div>
           ))}
         </div>
-        <div style={{ flex: 1, overflowY: "auto", border: "1px solid #f0f0f0", borderRadius: 4 }}>
+        <div style={{ flex: 1, overflowY: "auto", border: "1px solid var(--c-fill)", borderRadius: 4 }}>
           {selected == null ? (
             <Empty description="Chọn một bản để xem" style={{ paddingTop: 80 }} />
           ) : preview == null ? (
@@ -1176,8 +1177,8 @@ export default function ChapterEditor() {
           </span>
         </Space>
         <Space>
-          <span style={{ fontSize: 12, color: "#8c8c8c" }}>{words.toLocaleString("vi-VN")} chữ</span>
-          <span style={{ fontSize: 12, color: status === "error" ? "#cf1322" : "#8c8c8c", minWidth: 90, textAlign: "right" }}>
+          <span style={{ fontSize: 12, color: "var(--c-text-3)" }}>{words.toLocaleString("vi-VN")} chữ</span>
+          <span style={{ fontSize: 12, color: status === "error" ? "#cf1322" : "var(--c-text-3)", minWidth: 90, textAlign: "right" }}>
             {statusText[status]}
           </span>
           <Tooltip title="Xem và khôi phục các bản lưu cũ">
@@ -1189,7 +1190,7 @@ export default function ChapterEditor() {
               icon={<SaveOutlined />}
               loading={status === "saving"}
               onClick={handleSave}
-              style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}
+              style={{ backgroundColor: "var(--c-accent)", borderColor: "var(--c-accent)", color: "var(--c-on-accent)" }}
             >
               Lưu
             </Button>
@@ -1200,7 +1201,7 @@ export default function ChapterEditor() {
       {/* Body */}
       <div style={{ display: "flex", gap: 8, flex: 1, overflow: "hidden" }}>
         {/* Editor */}
-        <div style={{ flex: 1, border: "1px solid #d9d9d9", borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", background: "#fff" }}>
+        <div style={{ flex: 1, border: "1px solid var(--c-border)", borderRadius: 4, overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--c-bg)" }}>
           {editor && <Toolbar editor={editor} onInsertUrl={() => setUrlModalOpen(true)} />}
           <div style={{ flex: 1, overflowY: "auto" }}>
             <EditorContent editor={editor} />
@@ -1267,7 +1268,7 @@ export default function ChapterEditor() {
             <Button icon={<UploadOutlined />} loading={modalUploading} onClick={() => modalFileRef.current?.click()} block>
               Chọn ảnh từ máy...
             </Button>
-            <div style={{ fontSize: 12, color: "#8c8c8c", marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: "var(--c-text-3)", marginTop: 8 }}>
               Ảnh sẽ được upload, chèn vào bài viết và lưu vào sidebar "Ảnh".
             </div>
           </div>
