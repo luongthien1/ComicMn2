@@ -114,15 +114,18 @@ Lệnh này sẽ tự động khởi động:
 ```bash
 cd backend
 # Đảm bảo đã active môi trường ảo (.venv)
-.venv\Scripts\python -m uvicorn main:app --reload
+.venv\Scripts\python -m uvicorn main:app --reload --host 127.0.0.1 --port 8010
 ```
 
-#### Chạy Background Worker:
+> Không cần worker riêng: việc cập nhật đồ thị truyện sau khi lưu chương chạy nền
+> ngay trong backend (`services/chapter_analysis.py`).
+
+#### Chạy test backend:
 ```bash
-cd backend
-# Đảm bảo đã active môi trường ảo (.venv)
-.venv\Scripts\python -m worker
+npm test
+# hoặc: cd backend && .venv\Scripts\python -m pytest -q
 ```
+Test chạy trên SQLite in-memory, không đụng PostgreSQL/Neo4j/Ollama thật.
 
 #### Chạy Frontend React:
 ```bash

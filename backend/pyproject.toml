@@ -1,30 +1,28 @@
 [project]
-name = "backend"
+name = "comicmn2-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "ComicMn2 backend - FastAPI + PostgreSQL + Neo4j story graph"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "alembic>=1.18.4",
     "fastapi>=0.128.0",
-    "fiona>=1.10.1",
-    "geopandas>=1.1.2",
-    "google-generativeai>=0.8.6",
-    "librosa>=0.11.0",
-    "matplotlib>=3.10.8",
-    "mcp>=1.2.0",
-    "minio>=7.2.20",
-    "opencv-python>=4.12.0.88",
-    "pandas>=2.3.3",
-    "pre-commit>=4.5.1",
-    "psycopg2>=2.9.12",
+    "google-genai>=1.0.0",
+    "httpx>=0.27.0",
+    "neo4j>=5.20.0",
     "psycopg[binary]>=3.3.2",
     "pydantic-settings>=2.12.0",
     "python-multipart>=0.0.28",
-    "rasterio>=1.4.4",
-    "scikit-image>=0.25.2",
     "sqlalchemy>=2.0.46",
-    "torch>=2.9.1",
-    "torchvision>=0.24.1",
     "uvicorn>=0.40.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

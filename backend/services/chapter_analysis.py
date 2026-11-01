@@ -1,84 +1,141 @@
+"""Cập nhật đồ thị truyện sau khi lưu chương (chạy nền).
+
+Trước: mỗi lần lưu tạo một job gọi comic-graphrag-mcp (subprocess riêng, chưa
+từng chạy thành công). Lưu 5 lần = 5 job song song.
+
+Giờ:
+  - Dùng `libs.story_graph` — cùng graph mà chat/kiểm mâu thuẫn đọc.
+  - Mỗi chương tối đa MỘT job `pending`. Lưu thêm khi đã có job chờ thì bỏ qua:
+    job chờ sẽ đọc nội dung MỚI NHẤT lúc chạy.
+  - Job đợi ANALYSIS_DELAY giây trước khi chạy để gộp loạt tự lưu liên tiếp.
+  - Khoá theo chương: hai job cùng chương không bao giờ chạy song song.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from collections import defaultdict
 from datetime import datetime
 
-from db.model.ai_settings import AiSettings
 from db.model.chapter import Chapter
 from db.model.chapter_analysis_job import ChapterAnalysisJob
+from fastapi import BackgroundTasks
 from libs.database.connect import SessionMaker
 from libs.logger.log import get_logger
-from libs.mcp_client.client import McpClientError, mcp_client
+from libs.story_graph.ingest import graph_configured, ingest_chapter, strip_html
+from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 
+ANALYSIS_DELAY = 20.0
 
-async def run_chapter_analysis(job_id: int):
-    """Chạy nền: ingest_chapter (+ check_chapter ở Phase 4) qua comic-graphrag-mcp, cập nhật job."""
-    db = SessionMaker()
-    try:
-        job = db.query(ChapterAnalysisJob).filter(ChapterAnalysisJob.id == job_id).first()
-        if not job:
-            return
+_locks: dict[int, threading.Lock] = defaultdict(threading.Lock)
+_locks_guard = threading.Lock()
 
-        chapter = db.query(Chapter).filter(Chapter.id == job.chapter_id).first()
-        if not chapter:
-            job.status = "error"
-            job.error_message = "Không tìm thấy chương."
-            job.finished_at = datetime.utcnow()
-            db.commit()
-            return
 
-        ai_settings = db.query(AiSettings).filter(AiSettings.id == 1).first()
-        ollama_endpoint = ai_settings.ollama_endpoint if ai_settings else None
-        ollama_model = ai_settings.ollama_model if ai_settings else "qwen2.5:14b"
+def _chapter_lock(chapter_id: int) -> threading.Lock:
+    with _locks_guard:
+        return _locks[chapter_id]
 
-        if not ollama_endpoint:
-            job.status = "error"
-            job.error_message = "Chưa cấu hình Ollama endpoint (vào trang Cài đặt)."
-            job.finished_at = datetime.utcnow()
-            db.commit()
-            return
 
-        job.status = "running"
-        db.commit()
+def enqueue_chapter_analysis(
+    chapter_id: int, db: Session, background_tasks: BackgroundTasks
+) -> bool:
+    """Xếp hàng cập nhật graph cho chương. Trả False nếu không cần tạo job mới."""
+    if not graph_configured():
+        return False
 
+    pending = (
+        db.query(ChapterAnalysisJob.id)
+        .filter(
+            ChapterAnalysisJob.chapter_id == chapter_id,
+            ChapterAnalysisJob.status == "pending",
+        )
+        .first()
+    )
+    if pending:
+        return False
+
+    job = ChapterAnalysisJob(chapter_id=chapter_id, status="pending")
+    db.add(job)
+    db.commit()
+    background_tasks.add_task(run_chapter_analysis, job.id, chapter_id)
+    return True
+
+
+def run_chapter_analysis(job_id: int, chapter_id: int, delay: float | None = None) -> None:
+    """Chạy trong threadpool của FastAPI (hàm sync)."""
+    time.sleep(ANALYSIS_DELAY if delay is None else delay)
+
+    with _chapter_lock(chapter_id):
+        db = SessionMaker()
         try:
-            ingest_result = await mcp_client.call_tool(
-                "ingest_chapter",
-                {
-                    "comic_id": chapter.comic_id,
-                    "chapter_id": chapter.id,
-                    "chapter_number": chapter.number,
-                    "title": chapter.title,
-                    "content_html": chapter.content or "",
-                    "ollama_endpoint": ollama_endpoint,
-                    "ollama_model": ollama_model,
-                },
-            )
-        except McpClientError as e:
-            job.status = "error"
-            job.error_message = str(e)
-            job.finished_at = datetime.utcnow()
-            db.commit()
-            return
-
-        job.ingest_result = ingest_result
-        if ingest_result.get("status") == "error":
-            job.status = "error"
-            job.error_message = ingest_result.get("error_message")
-        else:
-            job.status = "done"
-        job.finished_at = datetime.utcnow()
-        db.commit()
-
-    except Exception:
-        logger.exception("Loi khong xac dinh khi chay chapter analysis job")
-        try:
-            job = db.query(ChapterAnalysisJob).filter(ChapterAnalysisJob.id == job_id).first()
-            if job:
+            _run_locked(db, job_id)
+        except Exception as e:
+            logger.exception("Lỗi khi cập nhật graph cho chương")
+            db.rollback()
+            job = db.get(ChapterAnalysisJob, job_id)
+            if job is not None:
                 job.status = "error"
-                job.error_message = "Lỗi hệ thống không xác định."
+                job.error_message = str(e)[:2000]
                 job.finished_at = datetime.utcnow()
                 db.commit()
-        except Exception:
-            pass
+        finally:
+            db.close()
+
+
+def _run_locked(db: Session, job_id: int) -> None:
+    job = db.get(ChapterAnalysisJob, job_id)
+    if job is None or job.status != "pending":
+        return
+
+    chapter = db.get(Chapter, job.chapter_id)
+    if chapter is None:
+        return  # chương đã xoá — job cũng bị xoá theo (ON DELETE CASCADE)
+
+    job.status = "running"
+    db.commit()
+
+    rows = (
+        db.query(Chapter.id, Chapter.number, Chapter.title, Chapter.content)
+        .filter(Chapter.comic_id == chapter.comic_id)
+        .order_by(Chapter.number)
+        .all()
+    )
+    all_chapters = [
+        {"id": r.id, "number": float(r.number), "title": r.title or "",
+         "text": strip_html(r.content or "")}
+        for r in rows
+    ]
+    this = next(c for c in all_chapters if c["id"] == chapter.id)
+
+    job.ingest_result = ingest_chapter(chapter.comic_id, this, all_chapters)
+    job.status = "done"
+    job.finished_at = datetime.utcnow()
+    db.commit()
+
+
+def fail_interrupted_jobs() -> None:
+    """Job đang chờ/chạy khi backend tắt sẽ không bao giờ xong — đánh dấu lỗi."""
+    db = SessionMaker()
+    try:
+        n = (
+            db.query(ChapterAnalysisJob)
+            .filter(ChapterAnalysisJob.status.in_(["pending", "running"]))
+            .update(
+                {
+                    "status": "error",
+                    "error_message": "Bị ngắt do backend khởi động lại.",
+                    "finished_at": datetime.utcnow(),
+                },
+                synchronize_session=False,
+            )
+        )
+        db.commit()
+        if n:
+            logger.info(f"Đánh dấu {n} job phân tích bị ngắt")
+    except Exception:
+        logger.exception("Không dọn được job cũ")
     finally:
         db.close()

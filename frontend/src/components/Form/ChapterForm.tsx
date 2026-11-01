@@ -75,9 +75,15 @@ export default function ChapterForm({
         <Form.Item
           name="number"
           label="Số chương"
+          extra="Có thể dùng số lẻ cho ngoại truyện, vd 30.5"
           rules={[{ required: true, message: "Vui lòng nhập số chương" }]}
         >
-          <InputNumber style={{ width: "100%" }} min={1} placeholder="1" />
+          <InputNumber
+            style={{ width: "100%" }}
+            min={0}
+            step={0.5}
+            placeholder="1"
+          />
         </Form.Item>
 
         <Form.Item name="title" label="Tên chương">

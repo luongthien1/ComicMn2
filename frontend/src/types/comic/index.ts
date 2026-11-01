@@ -11,14 +11,30 @@ export interface Page {
 export interface Chapter {
   id: number;
   comic_id: number;
+  /** Có thể lẻ, vd 30.5 cho ngoại truyện */
   number: number;
   title?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface ChapterDetail extends Chapter {
   content?: string;
+  notes?: string;
   pages: Page[];
+}
+
+export interface ChapterRevision {
+  id: number;
+  chapter_id: number;
+  char_count: number;
+  /** auto: tự chụp khi lưu | manual: bấm Lưu/Ctrl+S | restore: trước khi khôi phục */
+  reason: "auto" | "manual" | "restore";
+  created_at: string;
+}
+
+export interface ChapterRevisionDetail extends ChapterRevision {
+  content?: string;
 }
 
 export interface Comic {
@@ -54,6 +70,7 @@ export interface ChapterUpdate {
   number?: number;
   title?: string;
   content?: string;
+  notes?: string;
 }
 
 export interface PageCreate {

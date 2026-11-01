@@ -3,6 +3,8 @@ import type {
   Chapter,
   ChapterCreate,
   ChapterDetail,
+  ChapterRevision,
+  ChapterRevisionDetail,
   ChapterUpdate,
   Comic,
   ComicCreate,
@@ -49,8 +51,36 @@ export class ComicApi extends BaseApi {
     return this.get<ChapterDetail>(`${this.prefix}/${comicId}/chapters/${chapterId}`);
   }
 
-  updateChapter(comicId: number, chapterId: number, data: ChapterUpdate) {
-    return this.put<ChapterDetail>(`${this.prefix}/${comicId}/chapters/${chapterId}`, data);
+  /** snapshot=true: ghi thêm một bản vào lịch sử (khi người dùng chủ động Lưu). */
+  updateChapter(comicId: number, chapterId: number, data: ChapterUpdate, opts?: { snapshot?: boolean }) {
+    return this.put<ChapterDetail>(
+      `${this.prefix}/${comicId}/chapters/${chapterId}`,
+      data,
+      opts?.snapshot ? { snapshot: true } : undefined,
+    );
+  }
+
+  /** URL đầy đủ cho lưu khẩn khi rời trang (fetch keepalive). */
+  chapterUrl(comicId: number, chapterId: number) {
+    return `${import.meta.env.VITE_BACKEND_API_URL ?? ""}${this.prefix}/${comicId}/chapters/${chapterId}`;
+  }
+
+  // Revisions
+  listRevisions(comicId: number, chapterId: number) {
+    return this.get<ChapterRevision[]>(`${this.prefix}/${comicId}/chapters/${chapterId}/revisions`);
+  }
+
+  getRevision(comicId: number, chapterId: number, revisionId: number) {
+    return this.get<ChapterRevisionDetail>(
+      `${this.prefix}/${comicId}/chapters/${chapterId}/revisions/${revisionId}`,
+    );
+  }
+
+  restoreRevision(comicId: number, chapterId: number, revisionId: number) {
+    return this.post<ChapterDetail>(
+      `${this.prefix}/${comicId}/chapters/${chapterId}/revisions/${revisionId}/restore`,
+      undefined,
+    );
   }
 
   deleteChapter(comicId: number, chapterId: number) {

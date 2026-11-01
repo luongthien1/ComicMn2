@@ -11,7 +11,10 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 import httpx
+from core.ai_config import get_ollama
 from core.config import settings
+
+from .schema import backfill_comic_ids
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +151,9 @@ class StoryRetriever:
                 connection_timeout=5,
             )
             driver.verify_connectivity()
+            # Gán comic_id cho node nạp trước khi có trường này — một lần mỗi kết nối
+            with driver.session() as s:
+                backfill_comic_ids(s)
             self._driver = driver
             return driver
         except Exception as e:
@@ -161,13 +167,14 @@ class StoryRetriever:
 
     def _embed(self, text: str) -> list[float] | None:
         """Nhúng câu hỏi qua ollama. None nếu hỏng — vẫn còn graph facts."""
-        if not settings.OLLAMA_TOKEN:
+        cfg = get_ollama()
+        if not cfg.configured:
             return None
         try:
             r = httpx.post(
-                f"{settings.OLLAMA_BASE_URL}/api/embed",
-                json={"model": settings.EMBED_MODEL, "input": [text]},
-                headers={"Authorization": f"Bearer {settings.OLLAMA_TOKEN}"},
+                f"{cfg.base_url}/api/embed",
+                json={"model": cfg.embed_model, "input": [text]},
+                headers=cfg.headers,
                 timeout=30,
             )
             r.raise_for_status()
@@ -215,29 +222,36 @@ class StoryRetriever:
             st.done(rows)
             return rows
 
+    # Index vector dùng chung mọi truyện và không lọc trực tiếp được;
+    # lấy sâu 300 rồi lọc theo truyện/chương. Thiếu lọc này thì hỏi truyện A
+    # có thể nhận đoạn văn của truyện B.
     Q_VEC_GLOBAL = """
-        CALL db.index.vector.queryNodes('chunk_embedding', $k, $vec)
+        CALL db.index.vector.queryNodes('chunk_embedding', 300, $vec)
         YIELD node, score
+        WHERE node.comic_id = $cid
         RETURN node.chapter AS chapter, node.text AS text, score
+        ORDER BY score DESC LIMIT $k
     """
 
     Q_VEC_FINE = """
-        CALL db.index.vector.queryNodes('fine_embedding', $k, $vec)
+        CALL db.index.vector.queryNodes('fine_embedding', 300, $vec)
         YIELD node, score
+        WHERE node.comic_id = $cid
         RETURN node.chapter AS chapter, node.text AS text, score
+        ORDER BY score DESC LIMIT $k
     """
 
     # Index vector không lọc trực tiếp được; lấy sâu 300 rồi lọc theo chương.
     Q_VEC_CHAPTER = """
         CALL db.index.vector.queryNodes('chunk_embedding', 300, $vec)
         YIELD node, score
-        WHERE node.chapter = $ch
+        WHERE node.comic_id = $cid AND node.chapter = $ch
         RETURN node.chapter AS chapter, node.text AS text, score
         ORDER BY score DESC LIMIT $k
     """
 
     Q_CHAPTER_HEAD = """
-        MATCH (c:Chapter {number: $ch})-[:HAS_CHUNK]->(ck:Chunk)
+        MATCH (c:Chapter {comic_id: $cid, number: $ch})-[:HAS_CHUNK]->(ck:Chunk)
         RETURN ck.chapter AS chapter, ck.text AS text, 0.0 AS score
         ORDER BY ck.offset LIMIT $k
     """
@@ -245,7 +259,7 @@ class StoryRetriever:
     Q_VEC_IN_CHAPTERS = """
         CALL db.index.vector.queryNodes('chunk_embedding', 300, $vec)
         YIELD node, score
-        WHERE node.chapter IN $chapters
+        WHERE node.comic_id = $cid AND node.chapter IN $chapters
         RETURN node.chapter AS chapter, node.text AS text, score
         ORDER BY score DESC LIMIT $k
     """
@@ -253,6 +267,7 @@ class StoryRetriever:
     Q_SCENES = """
         CALL db.index.fulltext.queryNodes('scene_text', $q)
         YIELD node, score
+        WHERE node.comic_id = $cid
         RETURN node.chapter AS chapter, node.summary AS summary,
                node.key_action AS key_action,
                node.physical_state AS physical_state,
@@ -260,22 +275,22 @@ class StoryRetriever:
         ORDER BY score DESC LIMIT $k
     """
 
-    def _vec_global(self, s, qv, k, rec=None):
+    def _vec_global(self, s, qv, k, cid, rec=None):
         return self._run(s, rec, "vector toàn truyện (chunk lớn)",
-                         self.Q_VEC_GLOBAL, k=k, vec=qv)
+                         self.Q_VEC_GLOBAL, k=k, vec=qv, cid=cid)
 
-    def _vec_fine(self, s, qv, k, rec=None):
+    def _vec_fine(self, s, qv, k, cid, rec=None):
         try:
             return self._run(s, rec, "vector chunk nhỏ (~96 ký tự)",
-                             self.Q_VEC_FINE, k=k, vec=qv)
+                             self.Q_VEC_FINE, k=k, vec=qv, cid=cid)
         except Exception as e:
             if rec:
                 rec.decision("chunk nhỏ", f"Không dùng được (chưa nạp?): {e}")
             return []
 
-    def _vec_chapter(self, s, qv, ch, k, rec=None):
+    def _vec_chapter(self, s, qv, ch, k, cid, rec=None):
         rows = self._run(s, rec, f"vector giới hạn trong chương {ch:g}",
-                         self.Q_VEC_CHAPTER, vec=qv, ch=ch, k=k)
+                         self.Q_VEC_CHAPTER, vec=qv, ch=ch, k=k, cid=cid)
         if rows:
             return rows
         if rec:
@@ -284,21 +299,21 @@ class StoryRetriever:
                 f"Không đoạn nào trong chương {ch:g} khớp câu hỏi → lấy phần đầu chương.",
             )
         return self._run(s, rec, f"phần đầu chương {ch:g}",
-                         self.Q_CHAPTER_HEAD, ch=ch, k=k)
+                         self.Q_CHAPTER_HEAD, ch=ch, k=k, cid=cid)
 
-    def _vec_in_chapters(self, s, qv, chapters, k, rec=None):
+    def _vec_in_chapters(self, s, qv, chapters, k, cid, rec=None):
         if not chapters:
             return []
         return self._run(s, rec, "vector trong các chương Scene gợi ý",
-                         self.Q_VEC_IN_CHAPTERS, vec=qv, chapters=chapters, k=k)
+                         self.Q_VEC_IN_CHAPTERS, vec=qv, chapters=chapters, k=k, cid=cid)
 
-    def _scenes(self, s, question, k=6, rec=None):
+    def _scenes(self, s, question, cid, k=6, rec=None):
         terms = [t for t in re.findall(r"\w+", question) if len(t) > 2]
         if not terms:
             return []
         try:
             return self._run(s, rec, "full-text trên mô tả cảnh",
-                             self.Q_SCENES, q=" OR ".join(terms), k=k)
+                             self.Q_SCENES, q=" OR ".join(terms), k=k, cid=cid)
         except Exception as e:
             if rec:
                 rec.decision("scene", f"Không tìm được cảnh (chưa nạp Scene?): {e}")
@@ -327,7 +342,7 @@ class StoryRetriever:
     """
 
     Q_PRESENT_IN_CHAPTER = """
-        MATCH (e:Entity {comic_id: $cid})-[:APPEARS_IN]->(c:Chapter {number: $ch})
+        MATCH (e:Entity {comic_id: $cid})-[:APPEARS_IN]->(c:Chapter {comic_id: $cid, number: $ch})
         RETURN e.name AS name ORDER BY e.name
     """
 
@@ -383,7 +398,8 @@ class StoryRetriever:
         self,
         question: str,
         chapter: float | None = None,
-        comic_id: int = 1,
+        *,
+        comic_id: int,
         k: int = 8,
         rec=None,
     ) -> StoryContext:
@@ -407,7 +423,7 @@ class StoryRetriever:
             rec.record(
                 "nhúng câu hỏi", "embed",
                 note=(
-                    f"Dùng {settings.EMBED_MODEL} → vector {len(qv)} chiều"
+                    f"Dùng {get_ollama().embed_model} → vector {len(qv)} chiều"
                     if qv else "Không tạo được embedding — chỉ dùng sự thật từ đồ thị"
                 ),
             )
@@ -420,17 +436,17 @@ class StoryRetriever:
                     return StoryContext(facts=facts, route=route, chapter=target)
 
                 if route == "chapter":
-                    chunks = self._vec_chapter(s, qv, target, k, rec)
+                    chunks = self._vec_chapter(s, qv, target, k, comic_id, rec)
                     return StoryContext(chunks, [], facts, route, target)
 
                 if route == "scene":
-                    scenes = self._scenes(s, question, rec=rec)
-                    chunks = self._vec_global(s, qv, 8, rec)
+                    scenes = self._scenes(s, question, comic_id, rec=rec)
+                    chunks = self._vec_global(s, qv, 8, comic_id, rec)
                     seen = {(c["chapter"], c["text"][:60]) for c in chunks}
 
                     if self.wants_detail(question):
                         added = 0
-                        for fine in self._vec_fine(s, qv, 5, rec):
+                        for fine in self._vec_fine(s, qv, 5, comic_id, rec):
                             key = (fine["chapter"], fine["text"][:60])
                             if key not in seen:
                                 chunks.append(fine)
@@ -451,7 +467,7 @@ class StoryRetriever:
                     if scenes:
                         cand = list({sc["chapter"] for sc in scenes})
                         added = 0
-                        for extra in self._vec_in_chapters(s, qv, cand, 3, rec):
+                        for extra in self._vec_in_chapters(s, qv, cand, 3, comic_id, rec):
                             key = (extra["chapter"], extra["text"][:60])
                             if key not in seen:
                                 chunks.append(extra)
@@ -465,11 +481,11 @@ class StoryRetriever:
                             )
                     return StoryContext(chunks, scenes, facts, route, None)
 
-                chunks = self._vec_global(s, qv, k, rec)
+                chunks = self._vec_global(s, qv, k, comic_id, rec)
                 if self.wants_detail(question):
                     seen = {(c["chapter"], c["text"][:60]) for c in chunks}
                     added = 0
-                    for fine in self._vec_fine(s, qv, 4, rec):
+                    for fine in self._vec_fine(s, qv, 4, comic_id, rec):
                         key = (fine["chapter"], fine["text"][:60])
                         if key not in seen:
                             chunks.append(fine)
@@ -485,8 +501,8 @@ class StoryRetriever:
                 rec.decision("lỗi", str(e))
             return StoryContext(available=False, error=str(e))
 
-    def stats(self, comic_id: int = 1) -> dict:
-        """Thống kê graph — để UI biết đã ingest gì."""
+    def stats(self, comic_id: int) -> dict:
+        """Thống kê graph của MỘT truyện — để UI biết đã ingest gì."""
         driver = self._get_driver()
         if driver is None:
             return {"available": False}
@@ -494,13 +510,18 @@ class StoryRetriever:
             with driver.session() as s:
                 row = s.run(
                     """
-                    OPTIONAL MATCH (c:Chapter) WITH count(c) AS chapters
-                    OPTIONAL MATCH (ck:Chunk) WITH chapters, count(ck) AS chunks
-                    OPTIONAL MATCH (e:Entity) WITH chapters, chunks, count(e) AS entities
-                    OPTIONAL MATCH (f:Fact) WITH chapters, chunks, entities, count(f) AS facts
-                    OPTIONAL MATCH (sc:Scene)
+                    OPTIONAL MATCH (c:Chapter {comic_id: $cid})
+                    WITH count(c) AS chapters
+                    OPTIONAL MATCH (ck:Chunk {comic_id: $cid})
+                    WITH chapters, count(ck) AS chunks
+                    OPTIONAL MATCH (e:Entity {comic_id: $cid})
+                    WITH chapters, chunks, count(e) AS entities
+                    OPTIONAL MATCH (f:Fact {comic_id: $cid})
+                    WITH chapters, chunks, entities, count(f) AS facts
+                    OPTIONAL MATCH (sc:Scene {comic_id: $cid})
                     RETURN chapters, chunks, entities, facts, count(sc) AS scenes
-                    """
+                    """,
+                    cid=comic_id,
                 ).single()
                 return {"available": True, **dict(row)}
         except Exception as e:

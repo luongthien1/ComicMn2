@@ -213,3 +213,4 @@ node_modules
 .claude/settings.local.json
 backend/media/
 media/
+backups/

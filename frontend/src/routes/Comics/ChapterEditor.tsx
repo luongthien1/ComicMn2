@@ -3,7 +3,7 @@ import { ComicApi } from "@/api/comics";
 import { AiApi } from "@/api/ai";
 import { ReviewPanel } from "@/components/StoryReview/ReviewPanel";
 import type { IngestProgress, StoryGraphStats } from "@/api/ai";
-import type { Chapter, ChapterDetail } from "@/types/comic";
+import type { Chapter, ChapterDetail, ChapterRevision } from "@/types/comic";
 import {
   ArrowLeftOutlined,
   BoldOutlined,
@@ -13,6 +13,7 @@ import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
+  HistoryOutlined,
   ItalicOutlined,
   MessageOutlined,
   StarOutlined,
@@ -20,6 +21,7 @@ import {
   PictureOutlined,
   PlusOutlined,
   RobotOutlined,
+  RollbackOutlined,
   SaveOutlined,
   SendOutlined,
   StrikethroughOutlined,
@@ -35,9 +37,11 @@ import {
   Empty,
   Input,
   Modal,
+  Popconfirm,
   Segmented,
   Space,
   Spin,
+  Tag,
   Tooltip,
 } from "antd";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
@@ -68,8 +72,9 @@ const ASSETS_KEY = "comic-assets";
 const ls = {
   assets: (): AssetItem[] => { try { return JSON.parse(localStorage.getItem(ASSETS_KEY) ?? "[]"); } catch { return []; } },
   saveAssets: (v: AssetItem[]) => localStorage.setItem(ASSETS_KEY, JSON.stringify(v)),
-  note: (id: string) => localStorage.getItem(`chapter-note-${id}`) ?? "",
-  saveNote: (id: string, v: string) => localStorage.setItem(`chapter-note-${id}`, v),
+  // Ghi chú giờ lưu trên server; chỉ còn đọc để chuyển dữ liệu cũ lên một lần
+  note: (id: string) => { try { return localStorage.getItem(`chapter-note-${id}`) ?? ""; } catch { return ""; } },
+  clearNote: (id: string) => { try { localStorage.removeItem(`chapter-note-${id}`); } catch { /* bỏ qua */ } },
   qa: (id: string): QAItem[] => { try { return JSON.parse(localStorage.getItem(`chapter-qa-${id}`) ?? "[]"); } catch { return []; } },
   saveQA: (id: string, v: QAItem[]) => localStorage.setItem(`chapter-qa-${id}`, JSON.stringify(v)),
 };
@@ -244,13 +249,13 @@ function ChaptersTab({ comicId, currentChapterId }: { comicId: number; currentCh
 
 // ── Notes Tab ─────────────────────────────────────────────────────────────────
 
-function NotesTab({ chapterId }: { chapterId: string }) {
-  const [note, setNote] = useState(() => ls.note(chapterId));
+function NotesTab({ notes, onChange }: { notes: string; onChange: (v: string) => void }) {
+  // Lưu cùng cơ chế tự lưu của chương (server), không còn nằm trong localStorage
   return (
     <div style={{ padding: 10, height: "100%", display: "flex", flexDirection: "column" }}>
       <Input.TextArea
-        value={note}
-        onChange={(e) => { setNote(e.target.value); ls.saveNote(chapterId, e.target.value); }}
+        value={notes}
+        onChange={(e) => onChange(e.target.value)}
         placeholder="Ghi chú cho chương này..."
         style={{ flex: 1, resize: "none", border: "none", outline: "none", padding: 0, fontSize: 13, boxShadow: "none" }}
         autoSize={false}
@@ -641,9 +646,11 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 function Sidebar({
-  comicId, chapterId, chapterNumber, assets, onAssetsChange, onInsert, onError, isOpen, setIsOpen
+  comicId, chapterId, chapterNumber, notes, onNotesChange, assets, onAssetsChange, onInsert, onError, isOpen, setIsOpen
 }: {
   comicId: number; chapterId: number; chapterNumber?: number;
+  notes: string;
+  onNotesChange: (v: string) => void;
   assets: AssetItem[];
   onAssetsChange: (assets: AssetItem[]) => void;
   onInsert: (url: string) => void;
@@ -764,7 +771,7 @@ function Sidebar({
         <div style={{ flex: 1, overflow: "hidden" }}>
           {active === "assets"   && <AssetsTab assets={assets} onAssetsChange={onAssetsChange} onInsert={onInsert} onError={onError} />}
           {active === "chapters" && <ChaptersTab comicId={comicId} currentChapterId={chapterId} />}
-          {active === "notes"    && <NotesTab chapterId={String(chapterId)} />}
+          {active === "notes"    && <NotesTab notes={notes} onChange={onNotesChange} />}
           {active === "qa"       && <QATab chapterId={String(chapterId)} comicId={comicId} chapterNumber={chapterNumber} />}
           {active === "review"   && <ReviewPanel comicId={comicId} chapterNumber={chapterNumber} />}
         </div>
@@ -773,7 +780,163 @@ function Sidebar({
   );
 }
 
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
+// ── Revisions ─────────────────────────────────────────────────────────────────
+
+const REASON_LABEL: Record<ChapterRevision["reason"], string> = {
+  auto: "tự động",
+  manual: "bấm Lưu",
+  restore: "trước khôi phục",
+};
+
+function fmtTime(iso?: string) {
+  if (!iso) return "";
+  // Backend lưu UTC không kèm múi giờ
+  const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : `${iso}Z`);
+  return d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function RevisionPreview({ html }: { html: string }) {
+  // Hiển thị qua tiptap chỉ-đọc — schema của tiptap lọc bỏ thẻ lạ
+  const preview = useEditor({
+    editable: false,
+    extensions: [StarterKit, TiptapImage.configure({ inline: false, allowBase64: false }), Underline],
+    content: html,
+    editorProps: { attributes: { class: "comic-editor" } },
+  }, [html]);
+  return <EditorContent editor={preview} />;
+}
+
+function RevisionsModal({
+  open, comicId, chapterId, onClose, beforeRestore, onRestored,
+}: {
+  open: boolean;
+  comicId: number;
+  chapterId: number;
+  onClose: () => void;
+  beforeRestore: () => Promise<boolean>;
+  onRestored: (chapter: ChapterDetail) => void;
+}) {
+  const { show } = useAlert();
+  const [items, setItems] = useState<ChapterRevision[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setSelected(null);
+    setPreview(null);
+    api.listRevisions(comicId, chapterId)
+      .then(setItems)
+      .catch((e) => show("error", e.message))
+      .finally(() => setLoading(false));
+  }, [open, comicId, chapterId]);
+
+  const pick = (id: number) => {
+    setSelected(id);
+    setPreview(null);
+    api.getRevision(comicId, chapterId, id)
+      .then((r) => setPreview(r.content ?? ""))
+      .catch((e) => show("error", e.message));
+  };
+
+  const restore = async () => {
+    if (selected == null) return;
+    setRestoring(true);
+    try {
+      if (!(await beforeRestore())) return;
+      const ch = await api.restoreRevision(comicId, chapterId, selected);
+      onRestored(ch);
+      show("success", "Đã khôi phục. Nội dung trước đó được giữ trong lịch sử.");
+      onClose();
+    } catch (e) {
+      show("error", errMsg(e));
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="Lịch sử chương"
+      open={open}
+      onCancel={onClose}
+      width={960}
+      footer={[
+        <Button key="close" onClick={onClose}>Đóng</Button>,
+        <Popconfirm
+          key="restore"
+          title="Khôi phục bản này?"
+          description="Nội dung hiện tại sẽ được lưu vào lịch sử trước."
+          okText="Khôi phục"
+          cancelText="Hủy"
+          onConfirm={restore}
+          disabled={selected == null}
+        >
+          <Button type="primary" icon={<RollbackOutlined />} disabled={selected == null} loading={restoring}
+            style={{ backgroundColor: "#000", borderColor: "#000" }}>
+            Khôi phục
+          </Button>
+        </Popconfirm>,
+      ]}
+    >
+      <div style={{ display: "flex", gap: 12, height: "60vh" }}>
+        <div style={{ width: 260, overflowY: "auto", borderRight: "1px solid #f0f0f0", flexShrink: 0 }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 24 }}><Spin size="small" /></div>
+          ) : items.length === 0 ? (
+            <Empty description="Chưa có bản lưu nào" style={{ padding: 24 }} />
+          ) : items.map((r) => (
+            <div
+              key={r.id}
+              onClick={() => pick(r.id)}
+              style={{
+                padding: "8px 10px",
+                cursor: "pointer",
+                background: r.id === selected ? "#f0f0f0" : undefined,
+                borderLeft: r.id === selected ? "3px solid #000" : "3px solid transparent",
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{fmtTime(r.created_at)}</div>
+              <div style={{ fontSize: 12, color: "#8c8c8c" }}>
+                <Tag style={{ marginRight: 6 }}>{REASON_LABEL[r.reason] ?? r.reason}</Tag>
+                {r.char_count.toLocaleString("vi-VN")} ký tự
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", border: "1px solid #f0f0f0", borderRadius: 4 }}>
+          {selected == null ? (
+            <Empty description="Chọn một bản để xem" style={{ paddingTop: 80 }} />
+          ) : preview == null ? (
+            <div style={{ textAlign: "center", padding: 24 }}><Spin /></div>
+          ) : (
+            <RevisionPreview html={preview} />
+          )}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
+
+/** Ngừng gõ bấy nhiêu ms thì tự lưu. */
+const AUTOSAVE_MS = 2000;
+/** Lưu hỏng thì thử lại sau bấy nhiêu ms. */
+const RETRY_MS = 10000;
+
+type SaveStatus = "idle" | "dirty" | "saving" | "saved" | "error";
+type Patch = { content?: string; notes?: string };
+
+function countWords(text: string) {
+  const t = text.trim();
+  return t ? t.split(/\s+/).length : 0;
+}
 
 export default function ChapterEditor() {
   const { comicId, chapterId } = useParams<{ comicId: string; chapterId: string }>();
@@ -782,7 +945,11 @@ export default function ChapterEditor() {
 
   const [chapter, setChapter] = useState<ChapterDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [words, setWords] = useState(0);
+  const [notes, setNotes] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [urlModalOpen, setUrlModalOpen] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
   const [insertTab, setInsertTab] = useState<"url" | "upload">("url");
@@ -791,10 +958,60 @@ export default function ChapterEditor() {
   const [assets, setAssets] = useState<AssetItem[]>(ls.assets);
   const modalFileRef = useRef<HTMLInputElement>(null);
 
+  // Trạng thái lưu giữ trong ref — callback của tiptap/timer luôn đọc giá trị mới nhất
+  const pendingRef = useRef<Patch>({});
+  const savingRef = useRef<Promise<boolean> | null>(null);
+  const timerRef = useRef<number | undefined>(undefined);
+  const idsRef = useRef({ comicId: Number(comicId), chapterId: Number(chapterId) });
+  idsRef.current = { comicId: Number(comicId), chapterId: Number(chapterId) };
+
   const updateAssets = useCallback((updated: AssetItem[]) => {
     ls.saveAssets(updated);
     setAssets(updated);
   }, []);
+
+  const isDirty = () => Object.keys(pendingRef.current).length > 0;
+
+  /** Gửi các thay đổi đang chờ. snapshot=true: ghi thêm vào lịch sử. Trả true nếu thành công. */
+  const flush = useCallback(async (snapshot = false, contentOverride?: string): Promise<boolean> => {
+    window.clearTimeout(timerRef.current);
+    // Chờ lần lưu đang chạy xong rồi mới gửi tiếp — giữ đúng thứ tự
+    if (savingRef.current) await savingRef.current;
+
+    const patch: Patch = { ...pendingRef.current };
+    if (contentOverride !== undefined) patch.content = contentOverride;
+    if (!Object.keys(patch).length && !snapshot) return true;
+    pendingRef.current = {};
+
+    const { comicId: cId, chapterId: chId } = idsRef.current;
+    setStatus("saving");
+    const run = (async () => {
+      try {
+        await api.updateChapter(cId, chId, patch, { snapshot });
+        setSavedAt(new Date());
+        setStatus(isDirty() ? "dirty" : "saved");
+        return true;
+      } catch (e) {
+        // Trả thay đổi về hàng chờ (thay đổi mới hơn được ưu tiên) rồi thử lại
+        pendingRef.current = { ...patch, ...pendingRef.current };
+        setStatus("error");
+        show("error", `Chưa lưu được: ${errMsg(e)}`);
+        timerRef.current = window.setTimeout(() => { void flush(); }, RETRY_MS);
+        return false;
+      } finally {
+        savingRef.current = null;
+      }
+    })();
+    savingRef.current = run;
+    return run;
+  }, [show]);
+
+  const schedule = useCallback((patch: Patch) => {
+    pendingRef.current = { ...pendingRef.current, ...patch };
+    setStatus("dirty");
+    window.clearTimeout(timerRef.current);
+    timerRef.current = window.setTimeout(() => { void flush(); }, AUTOSAVE_MS);
+  }, [flush]);
 
   const editor = useEditor({
     extensions: [
@@ -803,33 +1020,98 @@ export default function ChapterEditor() {
       Underline,
     ],
     editorProps: { attributes: { class: "comic-editor" } },
+    onUpdate: ({ editor }) => {
+      schedule({ content: editor.getHTML() });
+      setWords(countWords(editor.getText()));
+    },
   });
 
+  // Nạp chương. Cleanup chạy khi rời trang HOẶC chuyển sang chương khác:
+  // gửi nốt thay đổi chưa lưu của chương cũ bằng keepalive (sống sót khi trang đóng).
   useEffect(() => {
     if (!comicId || !chapterId) return;
+    const cId = Number(comicId);
+    const chId = Number(chapterId);
     setLoading(true);
-    api.getChapter(Number(comicId), Number(chapterId))
-      .then((data) => { setChapter(data); })
+    setStatus("idle");
+    setSavedAt(null);
+    api.getChapter(cId, chId)
+      .then((data) => {
+        // Ghi chú cũ nằm trong localStorage → chuyển lên server một lần
+        const legacy = ls.note(String(chId));
+        if (!data.notes && legacy) {
+          data = { ...data, notes: legacy };
+          pendingRef.current = { ...pendingRef.current, notes: legacy };
+          void flush().then((ok) => { if (ok) ls.clearNote(String(chId)); });
+        }
+        setChapter(data);
+        setNotes(data.notes ?? "");
+      })
       .catch((e) => show("error", e.message))
       .finally(() => setLoading(false));
+
+    return () => {
+      window.clearTimeout(timerRef.current);
+      const patch = pendingRef.current;
+      pendingRef.current = {};
+      if (Object.keys(patch).length) {
+        void fetch(api.chapterUrl(cId, chId), {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+          keepalive: true,
+        });
+      }
+    };
   }, [comicId, chapterId]);
 
   useEffect(() => {
-    if (chapter && editor) editor.commands.setContent(chapter.content ?? "");
+    if (!chapter || !editor) return;
+    // emitUpdate:false — nạp nội dung không được tính là "người dùng sửa"
+    editor.commands.setContent(chapter.content ?? "", { emitUpdate: false });
+    setWords(countWords(editor.getText()));
   }, [chapter, editor]);
 
-  const handleSave = async () => {
+  // Cảnh báo khi đóng tab/tải lại lúc còn thay đổi chưa lưu
+  useEffect(() => {
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty() || savingRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, []);
+
+  const handleSave = useCallback(async () => {
     if (!editor) return;
-    setSaving(true);
-    try {
-      await api.updateChapter(Number(comicId), Number(chapterId), { content: editor.getHTML() });
-      show("success", "Đã lưu nội dung");
-    } catch (e: any) {
-      show("error", e.message);
-    } finally {
-      setSaving(false);
-    }
-  };
+    if (await flush(true, editor.getHTML())) show("success", "Đã lưu và ghi vào lịch sử");
+  }, [editor, flush, show]);
+
+  // Ctrl+S / Cmd+S
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [handleSave]);
+
+  const onNotesChange = useCallback((value: string) => {
+    setNotes(value);
+    schedule({ notes: value });
+  }, [schedule]);
+
+  const onRestored = useCallback((ch: ChapterDetail) => {
+    pendingRef.current = {};
+    setChapter((prev) => (prev ? { ...prev, content: ch.content } : ch));
+    setSavedAt(new Date());
+    setStatus("saved");
+  }, []);
 
   const insertImage = useCallback((url: string) => {
     if (!editor) return;
@@ -875,6 +1157,14 @@ export default function ChapterEditor() {
   if (loading) return <div style={{ textAlign: "center", paddingTop: 80 }}><Spin size="large" /></div>;
   if (!chapter) return null;
 
+  const statusText: Record<SaveStatus, string> = {
+    idle: "",
+    dirty: "Chưa lưu…",
+    saving: "Đang lưu…",
+    saved: savedAt ? `Đã lưu ${savedAt.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}` : "Đã lưu",
+    error: "Lỗi lưu — sẽ thử lại",
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 92px)" }}>
       {/* Header */}
@@ -885,15 +1175,26 @@ export default function ChapterEditor() {
             Chương {chapter.number}{chapter.title ? `: ${chapter.title}` : ""}
           </span>
         </Space>
-        <Button 
-          type="primary" 
-          icon={<SaveOutlined />} 
-          loading={saving} 
-          onClick={handleSave}
-          style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}
-        >
-          Lưu
-        </Button>
+        <Space>
+          <span style={{ fontSize: 12, color: "#8c8c8c" }}>{words.toLocaleString("vi-VN")} chữ</span>
+          <span style={{ fontSize: 12, color: status === "error" ? "#cf1322" : "#8c8c8c", minWidth: 90, textAlign: "right" }}>
+            {statusText[status]}
+          </span>
+          <Tooltip title="Xem và khôi phục các bản lưu cũ">
+            <Button icon={<HistoryOutlined />} onClick={() => setHistoryOpen(true)}>Lịch sử</Button>
+          </Tooltip>
+          <Tooltip title="Ctrl+S — lưu và ghi một bản vào lịch sử. Nội dung vẫn tự lưu khi bạn ngừng gõ.">
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              loading={status === "saving"}
+              onClick={handleSave}
+              style={{ backgroundColor: "#000", borderColor: "#000", color: "#fff" }}
+            >
+              Lưu
+            </Button>
+          </Tooltip>
+        </Space>
       </div>
 
       {/* Body */}
@@ -910,6 +1211,8 @@ export default function ChapterEditor() {
           comicId={Number(comicId)}
           chapterId={Number(chapterId)}
           chapterNumber={chapter?.number}
+          notes={notes}
+          onNotesChange={onNotesChange}
           assets={assets}
           onAssetsChange={updateAssets}
           onInsert={insertImage}
@@ -918,6 +1221,15 @@ export default function ChapterEditor() {
           setIsOpen={setSidebarOpen}
         />
       </div>
+
+      <RevisionsModal
+        open={historyOpen}
+        comicId={Number(comicId)}
+        chapterId={Number(chapterId)}
+        onClose={() => setHistoryOpen(false)}
+        beforeRestore={() => flush()}
+        onRestored={onRestored}
+      />
 
       <Modal
         title="Chèn ảnh minh họa"

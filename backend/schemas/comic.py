@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ComicStatus(str, Enum):
@@ -39,9 +39,10 @@ class ChapterOut(BaseModel):
     """Dùng trong danh sách (không load content/pages để giảm payload)."""
     id: int
     comic_id: int
-    number: int
+    number: float
     title: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -50,23 +51,43 @@ class ChapterDetailOut(BaseModel):
     """Dùng trong trang viết chương — có đầy đủ content và pages."""
     id: int
     comic_id: int
-    number: int
+    number: float
     title: Optional[str] = None
     content: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
     pages: List[PageOut] = []
 
     model_config = {"from_attributes": True}
 
 
 class ChapterCreate(BaseModel):
-    number: int
+    number: float = Field(ge=0)
     title: Optional[str] = None
 
 
 class ChapterUpdate(BaseModel):
-    number: Optional[int] = None
+    number: Optional[float] = Field(default=None, ge=0)
     title: Optional[str] = None
+    content: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ── Revision ──────────────────────────────────────────────────────────────────
+
+class ChapterRevisionOut(BaseModel):
+    """Danh sách lịch sử — không kèm nội dung."""
+    id: int
+    chapter_id: int
+    char_count: int
+    reason: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChapterRevisionDetailOut(ChapterRevisionOut):
     content: Optional[str] = None
 
 

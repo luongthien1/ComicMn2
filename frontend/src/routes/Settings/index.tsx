@@ -1,7 +1,7 @@
 import { useAlert } from "@/components/Alert/alertContext";
-import { AiSettingsApi } from "@/api/ai-settings";
+import { AiSettingsApi, type AiSettings } from "@/api/ai-settings";
 import { SaveOutlined } from "@ant-design/icons";
-import { Button, Card, Form, Input, Spin } from "antd";
+import { Alert, Button, Card, Descriptions, Form, Input, Spin, Tag } from "antd";
 import { useEffect, useState } from "react";
 
 const api = new AiSettingsApi();
@@ -10,14 +10,23 @@ export default function Settings() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [data, setData] = useState<AiSettings | null>(null);
   const { show } = useAlert();
+
+  const apply = (d: AiSettings) => {
+    setData(d);
+    form.setFieldsValue({
+      ollama_endpoint: d.ollama_endpoint ?? "",
+      ollama_model: d.ollama_model ?? "",
+    });
+  };
 
   useEffect(() => {
     setLoading(true);
     api
       .getSettings()
-      .then((data) => form.setFieldsValue(data))
-      .catch((e: any) => show("error", e.message))
+      .then(apply)
+      .catch((e) => show("error", e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -25,10 +34,11 @@ export default function Settings() {
     const values = await form.validateFields();
     setSaving(true);
     try {
-      await api.update(values);
+      // Chuỗi rỗng = xoá ghi đè, quay về giá trị trong backend/.env
+      apply(await api.update(values));
       show("success", "Đã lưu cấu hình");
-    } catch (e: any) {
-      show("error", e.message);
+    } catch (e) {
+      show("error", e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -46,22 +56,41 @@ export default function Settings() {
     <div>
       <h2 style={{ marginBottom: 16 }}>Cấu hình AI</h2>
       <Card title="Ollama Server" style={{ maxWidth: 560 }}>
+        {data && (
+          <Descriptions size="small" column={1} style={{ marginBottom: 16 }}>
+            <Descriptions.Item label="Đang dùng">
+              <code>{data.effective_endpoint || "—"}</code>
+            </Descriptions.Item>
+            <Descriptions.Item label="Model">
+              <code>{data.effective_model || "—"}</code>
+            </Descriptions.Item>
+            <Descriptions.Item label="Token">
+              {data.token_configured ? <Tag color="green">đã đặt</Tag> : <Tag>chưa đặt</Tag>}
+            </Descriptions.Item>
+            <Descriptions.Item label="Neo4j">
+              {data.graph_configured ? <Tag color="green">đã cấu hình</Tag> : <Tag color="orange">chưa cấu hình</Tag>}
+            </Descriptions.Item>
+          </Descriptions>
+        )}
+
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Để trống để dùng giá trị trong backend/.env. Token chỉ đặt trong .env."
+        />
+
         <Form form={form} layout="vertical">
           <Form.Item
             name="ollama_endpoint"
-            label="Ollama Endpoint"
-            rules={[{ required: true, message: "Vui lòng nhập endpoint" }]}
-            extra="Ví dụ: http://192.168.1.10:11434 — luôn dùng cấu hình lưu gần nhất."
+            label="Ollama Endpoint (ghi đè)"
+            extra="Ví dụ: http://192.168.1.10:11434 — dùng cho chat, embedding, kiểm mâu thuẫn, đánh giá."
           >
-            <Input placeholder="http://<host>:11434" />
+            <Input placeholder={data?.effective_endpoint || "http://<host>:11434"} allowClear />
           </Form.Item>
 
-          <Form.Item
-            name="ollama_model"
-            label="Model"
-            rules={[{ required: true, message: "Vui lòng nhập tên model" }]}
-          >
-            <Input placeholder="qwen2.5:14b" />
+          <Form.Item name="ollama_model" label="Model (ghi đè)">
+            <Input placeholder={data?.effective_model || "qwen3.5:latest"} allowClear />
           </Form.Item>
 
           <Button

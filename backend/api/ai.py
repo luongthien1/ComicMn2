@@ -1,18 +1,25 @@
+from functools import lru_cache
 from typing import List
 
-import google.generativeai as genai
 import httpx
+from core.ai_config import get_ollama
 from core.config import settings
 from db.model.chapter import Chapter
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from libs.database.connect import get_db
 from libs.story_graph import get_retriever
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, undefer
 
 router = APIRouter()
 
-genai.configure(api_key=settings.GEMINI_API_KEY)
+
+@lru_cache(maxsize=1)
+def _gemini_client():
+    from google import genai
+
+    return genai.Client(api_key=settings.GEMINI_API_KEY)
 
 # System prompt khi có tư liệu truyện. Ba quy tắc đầu đến từ thử nghiệm:
 # - quy tắc 2: sự thật trong truyện THAY ĐỔI theo chương (research/notes/12)
@@ -73,28 +80,25 @@ async def _chat_gemini(req: ChatRequest) -> str:
     if not settings.GEMINI_API_KEY:
         raise HTTPException(status_code=500, detail="GEMINI_API_KEY chưa được cấu hình.")
 
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        system_instruction=req.system_prompt,
+    from google.genai import types
+
+    contents = [
+        types.Content(role=msg.role, parts=[types.Part(text=msg.content)])
+        for msg in req.messages
+    ]
+    # Client async — trước đây gọi SDK đồng bộ trong hàm async làm treo cả server
+    response = await _gemini_client().aio.models.generate_content(
+        model=settings.GEMINI_MODEL,
+        contents=contents,
+        config=types.GenerateContentConfig(system_instruction=req.system_prompt),
     )
-
-    # Build history for multi-turn (all but last message)
-    history = []
-    for msg in req.messages[:-1]:
-        history.append({
-            "role": msg.role,
-            "parts": [msg.content],
-        })
-
-    chat_session = model.start_chat(history=history)
-    last_msg = req.messages[-1].content
-    response = chat_session.send_message(last_msg)
-    return response.text
+    return response.text or ""
 
 
 async def _chat_ollama(req: ChatRequest) -> str:
-    if not settings.OLLAMA_TOKEN:
-        raise HTTPException(status_code=500, detail="OLLAMA_TOKEN chưa được cấu hình.")
+    cfg = get_ollama()
+    if not cfg.configured:
+        raise HTTPException(status_code=500, detail="Chưa cấu hình Ollama endpoint.")
 
     # Gemini dùng role "model", Ollama dùng "assistant"
     messages = [{"role": "system", "content": req.system_prompt}]
@@ -103,23 +107,23 @@ async def _chat_ollama(req: ChatRequest) -> str:
         messages.append({"role": role, "content": msg.content})
 
     payload = {
-        "model": settings.OLLAMA_MODEL,
+        "model": cfg.model,
         "messages": messages,
         "think": False,   # qwen3.5 bật thinking mặc định, không tắt thì trace lẫn vào câu trả lời
         "stream": False,
     }
 
-    async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=cfg.timeout) as client:
         try:
             resp = await client.post(
-                f"{settings.OLLAMA_BASE_URL}/api/chat",
+                f"{cfg.base_url}/api/chat",
                 json=payload,
-                headers={"Authorization": f"Bearer {settings.OLLAMA_TOKEN}"},
+                headers=cfg.headers,
             )
         except httpx.RequestError as e:
             raise HTTPException(
                 status_code=503,
-                detail=f"Không kết nối được máy chạy Ollama ({settings.OLLAMA_BASE_URL}): {e}",
+                detail=f"Không kết nối được máy chạy Ollama ({cfg.base_url}): {e}",
             )
 
     if resp.status_code == 401:
@@ -144,7 +148,7 @@ def _ground_in_story(req: ChatRequest) -> tuple[ChatRequest, RetrievalInfo, obje
 
     question = req.messages[-1].content
     rec = TraceRecorder(question, req.comic_id, req.chapter)
-    ctx = get_retriever().retrieve(question, req.chapter, req.comic_id, rec=rec)
+    ctx = get_retriever().retrieve(question, req.chapter, comic_id=req.comic_id, rec=rec)
 
     if not ctx.available:
         rec.finish(answer=None)
@@ -179,7 +183,7 @@ def _ground_in_story(req: ChatRequest) -> tuple[ChatRequest, RetrievalInfo, obje
 
 
 @router.get("/story-graph/stats")
-def story_graph_stats(comic_id: int = 1):
+def story_graph_stats(comic_id: int):
     """Trạng thái graph — UI dùng để biết đã ingest truyện chưa."""
     return get_retriever().stats(comic_id)
 
@@ -189,7 +193,7 @@ class ConflictCheckRequest(BaseModel):
 
     draft: str
     at_chapter: float
-    comic_id: int = 1
+    comic_id: int
 
 
 @router.post("/story-graph/check-conflict")
@@ -204,7 +208,7 @@ def story_graph_check_conflict(req: ConflictCheckRequest):
     if not req.draft.strip():
         raise HTTPException(status_code=400, detail="Đoạn nháp trống.")
 
-    result = check_draft(req.draft, req.at_chapter, req.comic_id)
+    result = check_draft(req.draft, req.at_chapter, comic_id=req.comic_id)
     if not result.get("available"):
         raise HTTPException(
             status_code=503,
@@ -216,7 +220,7 @@ def story_graph_check_conflict(req: ConflictCheckRequest):
 class ReviewRequest(BaseModel):
     """Đánh giá truyện hoặc một chương."""
 
-    comic_id: int = 1
+    comic_id: int
     # Bỏ trống -> đánh giá toàn truyện; có số -> đánh giá chương đó
     chapter: float | None = None
     # Bỏ trống -> đánh giá mọi khía cạnh
@@ -261,7 +265,7 @@ def story_graph_review(req: ReviewRequest):
 
 
 @router.get("/story-graph/ingest-progress")
-def story_graph_ingest_progress(comic_id: int = 1):
+def story_graph_ingest_progress(comic_id: int):
     """Tiến độ nạp truyện — UI hỏi định kỳ trong lúc chạy."""
     from libs.story_graph.ingest import get_progress
 
@@ -283,16 +287,17 @@ def story_graph_ingest(
 
     if not settings.NEO4J_URI:
         raise HTTPException(status_code=503, detail="NEO4J_URI chưa được cấu hình.")
-    if not settings.OLLAMA_TOKEN:
+    if not get_ollama().configured:
         raise HTTPException(
             status_code=503,
-            detail="OLLAMA_TOKEN chưa được cấu hình — không tạo được embedding.",
+            detail="Chưa cấu hình Ollama — không tạo được embedding.",
         )
     if get_progress(comic_id).get("running"):
         raise HTTPException(status_code=409, detail="Đang nạp truyện này rồi.")
 
     rows = (
         db.query(Chapter)
+        .options(undefer(Chapter.content))
         .filter(Chapter.comic_id == comic_id)
         .order_by(Chapter.number)
         .all()
@@ -320,7 +325,8 @@ async def chat(req: ChatRequest):
     if provider not in ("gemini", "ollama"):
         raise HTTPException(status_code=400, detail=f"Provider không hợp lệ: {provider}")
 
-    req, retrieval, rec = _ground_in_story(req)
+    # Truy hồi dùng driver Neo4j + httpx đồng bộ → chạy ở threadpool
+    req, retrieval, rec = await run_in_threadpool(_ground_in_story, req)
 
     try:
         if provider == "ollama":

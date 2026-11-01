@@ -1,24 +1,17 @@
 {
-  "name": "basewed",
+  "name": "comicmn2",
   "version": "1.0.0",
-  "description": "The base wed side with frontend and backend for all thing",
-  "homepage": "https://github.com/luongthien1/BaseWed#readme",
-  "bugs": {
-    "url": "https://github.com/luongthien1/BaseWed/issues"
-  },
+  "private": true,
+  "description": "ComicMn2 - app viet truyen (FastAPI + React)",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/luongthien1/BaseWed.git"
+    "url": "git+https://github.com/luongthien1/ComicMn2.git"
   },
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
   "scripts": {
-    "backend": "cd backend && .venv\\Scripts\\python -m uvicorn main:app --reload --port 8010",
-    "worker": "cd backend && .venv\\Scripts\\python -m worker",
+    "backend": "cd backend && .venv\\Scripts\\python -m uvicorn main:app --reload --host 127.0.0.1 --port 8010",
     "frontend": "npm run dev --prefix frontend",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+    "test": "cd backend && .venv\\Scripts\\python -m pytest -q",
+    "dev": "concurrently -n api,web -c blue,green \"npm run backend\" \"npm run frontend\""
   },
   "dependencies": {
     "concurrently": "^9.2.1"

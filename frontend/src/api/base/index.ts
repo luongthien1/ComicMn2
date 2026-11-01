@@ -1,3 +1,11 @@
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 interface RequestOptions {
@@ -38,9 +46,16 @@ export class BaseApi {
 
     if (!res.ok) {
       const errorText = await res.text();
-      throw new Error(
-        `API ${method} ${url} failed: ${res.status} ${errorText}`
-      );
+      // FastAPI trả {"detail": "..."} — hiện thẳng thông điệp đó cho người dùng
+      let message = `API ${method} ${url} lỗi ${res.status}`;
+      try {
+        const detail = JSON.parse(errorText)?.detail;
+        if (typeof detail === "string") message = detail;
+        else if (detail) message = `${message}: ${JSON.stringify(detail)}`;
+      } catch {
+        if (errorText) message = `${message}: ${errorText.slice(0, 200)}`;
+      }
+      throw new ApiError(message, res.status);
     }
 
     if (res.status === 204 || res.headers.get('content-length') === '0') {
@@ -69,8 +84,15 @@ export class BaseApi {
     return this.request<T>(url, { method: 'POST', body });
   }
 
-  protected put<T>(url: string, body: any) {
-    return this.request<T>(url, { method: 'PUT', body });
+  protected put<T>(url: string, body: any, params?: Record<string, any>) {
+    const query = params
+      ? "?" + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined && v !== null)
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : "";
+    return this.request<T>(`${url}${query}`, { method: 'PUT', body });
   }
 
   protected delete<T>(url: string) {

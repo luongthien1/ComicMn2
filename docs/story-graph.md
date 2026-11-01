@@ -11,7 +11,8 @@ Kiến trúc và các con số ở đây đến từ 14 vòng thử nghiệm tro
 ### 1. Neo4j
 
 ```bash
-cd comic-graphrag-mcp
+# docker-compose.yml cho Neo4j vẫn nằm trong thư mục comic-graphrag-mcp
+cd ../comic-graphrag-mcp
 docker compose up -d
 ```
 
@@ -44,7 +45,25 @@ hiển thị *"Chưa nạp truyện"* kèm nút **Nạp truyện**. Bấm và ch
 theo từng chương, vài phút cho truyện dài.
 
 Nút này lấy chương từ database (`chapters.content`), bỏ HTML, cắt hai tầng chunk
-rồi embedding và ghi vào Neo4j. Nạp lại thì ghi đè (`MERGE`), không nhân bản.
+rồi embedding và ghi vào Neo4j. Nạp lại thì ghi đè, không nhân bản: chunk cũ của
+chương bị xoá trước khi ghi, chương đã xoá/đổi số bị dọn khỏi graph.
+
+**Tự cập nhật khi viết:** sau khi lưu chương, backend tự nạp lại RIÊNG chương đó
+(`services/chapter_analysis.py`) — đợi ~20 giây để gộp loạt tự lưu, mỗi chương
+tối đa một job chờ, không chạy song song. Không cần worker hay
+`comic-graphrag-mcp` nữa (nhánh MCP cũ đã gỡ khỏi backend).
+
+**Tách truyện:** mọi Chunk/FineChunk/Scene mang `comic_id`; truy vấn vector lọc
+theo truyện đang hỏi. Node nạp trước đây (kể cả từ `research/`) được gán bù
+`comic_id` từ Chapter cha khi backend kết nối Neo4j.
+
+**Dữ liệu research an toàn:** node do app ghi mang `src = 'app'`; mọi thao tác
+xoá chỉ chạm node có nhãn này. Lưu ý: dữ liệu RESTIA từ `research/` nằm ở
+`comic_id = 1` — nếu truyện id 1 trong app là truyện khác, chương trùng số sẽ
+ghi đè lên nhau. Nên nạp research vào một `comic_id` riêng.
+
+Endpoint/model Ollama đọc từ trang **Cài đặt** (ghi đè) rồi mới tới `.env`
+(`core/ai_config.py`). Token chỉ nằm trong `.env`.
 
 Thực thể được quét **cơ học** bằng tần suất tên riêng, không nhờ LLM — đếm chuỗi
 là việc máy làm chính xác 100% (`research/notes/05`).

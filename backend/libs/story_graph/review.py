@@ -23,7 +23,7 @@ import logging
 import re
 
 import httpx
-from core.config import settings
+from core.ai_config import get_ollama
 
 from .retriever import get_retriever
 
@@ -107,12 +107,12 @@ Q_ONE_CHAPTER = """
 """
 
 Q_CHAPTER_ENTITIES = """
-    MATCH (e:Entity {comic_id: $cid})-[:APPEARS_IN]->(c:Chapter {number: $ch})
+    MATCH (e:Entity {comic_id: $cid})-[:APPEARS_IN]->(c:Chapter {comic_id: $cid, number: $ch})
     RETURN e.name AS name, e.first_ch AS first_ch ORDER BY e.name
 """
 
 Q_CHAPTER_SCENES = """
-    MATCH (c:Chapter {number: $ch})-[:HAS_SCENE]->(s:Scene)
+    MATCH (c:Chapter {comic_id: $cid, number: $ch})-[:HAS_SCENE]->(s:Scene)
     OPTIONAL MATCH (s)-[:HAS_MOOD]->(m:Mood)
     RETURN s.summary AS summary, s.key_action AS key_action,
            collect(DISTINCT m.name) AS moods, s.order AS ord
@@ -196,8 +196,9 @@ def _format_stats(stats: dict) -> str:
 # ---------------------------------------------------------------- gọi LLM
 
 def _ask(prompt: str, timeout: int | None = None) -> str:
+    cfg = get_ollama()
     payload = {
-        "model": settings.OLLAMA_MODEL,
+        "model": cfg.model,
         "messages": [
             {"role": "system", "content": SYSTEM_REVIEW},
             {"role": "user", "content": prompt},
@@ -207,10 +208,10 @@ def _ask(prompt: str, timeout: int | None = None) -> str:
         "options": {"num_ctx": 16384},
     }
     r = httpx.post(
-        f"{settings.OLLAMA_BASE_URL}/api/chat",
+        f"{cfg.base_url}/api/chat",
         json=payload,
-        headers={"Authorization": f"Bearer {settings.OLLAMA_TOKEN}"},
-        timeout=timeout or settings.OLLAMA_TIMEOUT,
+        headers=cfg.headers,
+        timeout=timeout or cfg.timeout,
     )
     r.raise_for_status()
     return r.json()["message"]["content"]
@@ -246,10 +247,10 @@ def _parse(raw: str) -> dict:
 
 # ---------------------------------------------------------------- đầu vào
 
-def review_chapter(chapter: float, comic_id: int = 1, aspects: list[str] | None = None) -> dict:
+def review_chapter(chapter: float, comic_id: int, aspects: list[str] | None = None) -> dict:
     """Đánh giá một chương."""
-    if not settings.OLLAMA_TOKEN:
-        return {"available": False, "error": "OLLAMA_TOKEN chưa được cấu hình."}
+    if not get_ollama().configured:
+        return {"available": False, "error": "Chưa cấu hình Ollama (trang Cài đặt hoặc .env)."}
 
     driver = get_retriever()._get_driver()
     if driver is None:
@@ -268,7 +269,7 @@ def review_chapter(chapter: float, comic_id: int = 1, aspects: list[str] | None 
                     "error": f"Chương {chapter:g} chưa có trong đồ thị — nạp truyện trước.",
                 }
             ents = s.run(Q_CHAPTER_ENTITIES, cid=comic_id, ch=float(chapter)).data()
-            scenes = s.run(Q_CHAPTER_SCENES, ch=float(chapter)).data()
+            scenes = s.run(Q_CHAPTER_SCENES, cid=comic_id, ch=float(chapter)).data()
             stats = _collect_stats(s, comic_id)
     except Exception as e:
         logger.exception("Đọc chương để đánh giá hỏng")
@@ -319,10 +320,10 @@ def review_chapter(chapter: float, comic_id: int = 1, aspects: list[str] | None 
     }
 
 
-def review_story(comic_id: int = 1, aspects: list[str] | None = None) -> dict:
+def review_story(comic_id: int, aspects: list[str] | None = None) -> dict:
     """Đánh giá toàn truyện — dựa trên số liệu và tóm tắt cảnh, không đọc hết văn bản."""
-    if not settings.OLLAMA_TOKEN:
-        return {"available": False, "error": "OLLAMA_TOKEN chưa được cấu hình."}
+    if not get_ollama().configured:
+        return {"available": False, "error": "Chưa cấu hình Ollama (trang Cài đặt hoặc .env)."}
 
     driver = get_retriever()._get_driver()
     if driver is None:
@@ -379,7 +380,7 @@ def review_story(comic_id: int = 1, aspects: list[str] | None = None) -> dict:
     )
 
     try:
-        result = _parse(_ask(prompt, timeout=max(settings.OLLAMA_TIMEOUT, 300)))
+        result = _parse(_ask(prompt, timeout=max(get_ollama().timeout, 300)))
     except Exception as e:
         logger.exception("Đánh giá truyện hỏng")
         return {"available": False, "error": str(e)}

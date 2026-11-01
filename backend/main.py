@@ -3,24 +3,26 @@ from contextlib import asynccontextmanager
 from api import router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from libs.mcp_client.client import mcp_client
+from fastapi.concurrency import run_in_threadpool
+from libs.story_graph import get_retriever
+from services.chapter_analysis import fail_interrupted_jobs
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await mcp_client.start()
+    await run_in_threadpool(fail_interrupted_jobs)
     yield
-    await mcp_client.stop()
+    get_retriever().close()
 
 
-app = FastAPI(title="My FastAPI App", lifespan=lifespan)
+app = FastAPI(title="ComicMn2", lifespan=lifespan)
 
 # Include REST API
 app.include_router(router, prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,4 +31,5 @@ app.add_middleware(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8010)
+    # Chỉ nghe localhost — API không có xác thực
+    uvicorn.run(app, host="127.0.0.1", port=8010)

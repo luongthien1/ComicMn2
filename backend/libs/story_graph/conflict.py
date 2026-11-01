@@ -20,7 +20,7 @@ import logging
 import re
 
 import httpx
-from core.config import settings
+from core.ai_config import get_ollama
 
 from .retriever import get_retriever
 
@@ -63,8 +63,9 @@ SYSTEM_CHECK = (
 
 
 def _ask(prompt: str) -> str:
+    cfg = get_ollama()
     payload = {
-        "model": settings.OLLAMA_MODEL,
+        "model": cfg.model,
         "messages": [
             {"role": "system", "content": SYSTEM_CHECK},
             {"role": "user", "content": prompt},
@@ -74,10 +75,10 @@ def _ask(prompt: str) -> str:
         "options": {"num_ctx": 16384},
     }
     r = httpx.post(
-        f"{settings.OLLAMA_BASE_URL}/api/chat",
+        f"{cfg.base_url}/api/chat",
         json=payload,
-        headers={"Authorization": f"Bearer {settings.OLLAMA_TOKEN}"},
-        timeout=settings.OLLAMA_TIMEOUT,
+        headers=cfg.headers,
+        timeout=cfg.timeout,
     )
     r.raise_for_status()
     return r.json()["message"]["content"]
@@ -123,12 +124,12 @@ def _parse(raw: str) -> dict:
 def check_draft(
     draft: str,
     at_chapter: float,
-    comic_id: int = 1,
+    comic_id: int,
     k: int = 6,
 ) -> dict:
     """Kiểm một đoạn nháp có mâu thuẫn với truyện đã viết không."""
-    if not settings.OLLAMA_TOKEN:
-        return {"available": False, "error": "OLLAMA_TOKEN chưa được cấu hình."}
+    if not get_ollama().configured:
+        return {"available": False, "error": "Chưa cấu hình Ollama (trang Cài đặt hoặc .env)."}
 
     retriever = get_retriever()
 
