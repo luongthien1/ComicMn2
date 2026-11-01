@@ -2,11 +2,21 @@ from logging.config import fileConfig
 
 from alembic import context
 from db.migrations.base import Base
+from libs.database.connect import DATABASE_URL
 from sqlalchemy import engine_from_config, pool
+
+import db.model.comic  # noqa: F401 – register Comic with metadata
+import db.model.chapter  # noqa: F401 – register Chapter with metadata
+import db.model.page  # noqa: F401 – register Page with metadata
+import db.model.ai_settings  # noqa: F401 – register AiSettings with metadata
+import db.model.chapter_analysis_job  # noqa: F401 – register ChapterAnalysisJob with metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Override alembic.ini URL với DATABASE_URL từ settings/.env
+config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

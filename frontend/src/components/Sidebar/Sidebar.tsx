@@ -1,10 +1,18 @@
 import { Layout, Menu } from "antd";
+import { MenuFoldOutlined, MenuUnfoldOutlined } from "@ant-design/icons";
 import { Link, useLocation } from "react-router-dom";
 import { routes_config, NavigationItem } from "@/routes/routes_config";
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "./constants";
+import "./Sidebar.css";
 
 const { Sider } = Layout;
 
-const Sidebar = ({ collapsed }: { collapsed: boolean }) => {
+type SidebarProps = {
+  collapsed: boolean;
+  onToggle?: () => void;
+};
+
+const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
   const location = useLocation();
   const selectedKey = location.pathname === "/" ? "/" : location.pathname;
 
@@ -13,8 +21,8 @@ const Sidebar = ({ collapsed }: { collapsed: boolean }) => {
       trigger={null}
       collapsible
       collapsed={collapsed}
-      width={200}
-      collapsedWidth={80}
+      width={SIDEBAR_WIDTH}
+      collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
       style={{
         overflow: "auto",
         height: "100vh",
@@ -25,10 +33,33 @@ const Sidebar = ({ collapsed }: { collapsed: boolean }) => {
     >
       <div
         className="logo"
-        style={{ height: 32, margin: 16, textAlign: "center", color: "#fff" }}
+        style={{
+          height: 32,
+          margin: 12,
+          textAlign: "center",
+          color: "#fff",
+          fontSize: collapsed ? 16 : 15,
+          fontWeight: 600,
+          lineHeight: "32px",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+        }}
       >
         {collapsed ? "C" : "Company"}
       </div>
+
+      {onToggle && (
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+        >
+          {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+        </button>
+      )}
+
       <Menu
         theme="dark"
         mode="inline"

@@ -1,0 +1,35 @@
+/* ── Rich text editor ──────────────────────────────────────────────────────── */
+.comic-editor {
+  min-height: 480px;
+  padding: 20px 24px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.8;
+  cursor: text;
+}
+
+.comic-editor p { margin: 0 0 8px; }
+.comic-editor h1 { font-size: 24px; font-weight: 700; margin: 20px 0 10px; }
+.comic-editor h2 { font-size: 20px; font-weight: 600; margin: 16px 0 8px; }
+.comic-editor h3 { font-size: 17px; font-weight: 600; margin: 14px 0 6px; }
+
+.comic-editor ul,
+.comic-editor ol {
+  padding-left: 24px;
+  margin: 6px 0 10px;
+}
+
+.comic-editor img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 12px auto;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.comic-editor .ProseMirror-selectednode {
+  outline: 2px solid #000;
+  border-radius: 4px;
+}
+

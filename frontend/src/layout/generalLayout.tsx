@@ -1,66 +1,88 @@
 import { useState } from 'react';
 import { Layout, Breadcrumb } from 'antd';
-import {
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-} from '@ant-design/icons';
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import Sidebar from '../components/Sidebar/Sidebar';
+import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from '../components/Sidebar/constants';
+import { routes_config, NavigationItem } from '@/routes/routes_config';
+
 const { Header, Content, Footer } = Layout;
+
+function buildPathTitleMap(
+  routes: NavigationItem[],
+  map: Record<string, string> = {},
+): Record<string, string> {
+  for (const route of routes) {
+    map[route.path] = route.title;
+    if (route.children) buildPathTitleMap(route.children, map);
+  }
+  return map;
+}
+
+const PATH_TITLE_MAP = buildPathTitleMap(routes_config);
 
 const LayoutApp = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
 
-  const toggle = () => {
-    setCollapsed(!collapsed);
-  };
+  const segments = location.pathname.split('/').filter(Boolean);
 
-  // Tạo breadcrumb dựa vào path
-  const pathSnippets = location.pathname.split('/').filter(i => i);
   const breadcrumbItems = [
-    {
-      breadcrumbName: 'Home',
-      path: '/',
-    },
-    ...pathSnippets.map((_, idx) => {
-      const url = `/${pathSnippets.slice(0, idx + 1).join('/')}`;
-      return {
-        breadcrumbName: _,
-        path: url,
-      };
+    { path: '/', label: 'Home' },
+    ...segments.map((seg, idx) => {
+      const url = '/' + segments.slice(0, idx + 1).join('/');
+      const label = PATH_TITLE_MAP[url] ?? seg;
+      return { path: url, label };
     }),
   ];
 
+  // Không lặp lại "Home" nếu đang ở trang chủ
+  const visibleItems = breadcrumbItems.length > 1 ? breadcrumbItems : breadcrumbItems.slice(0, 1);
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sidebar collapsed={collapsed} />
+      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((prev) => !prev)} />
 
-      <Layout className="site-layout" style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s' }}>
-        <Header style={{ padding: '0 16px', background: '#fff', display: 'flex', alignItems: 'center' }}>
-          {collapsed ? (
-            <MenuUnfoldOutlined onClick={toggle} style={{ fontSize: 18 }} />
-          ) : (
-            <MenuFoldOutlined onClick={toggle} style={{ fontSize: 18 }} />
-          )}
-          {/* Bạn có thể thêm logo, user avatar, menu top phụ ở đây */}
-        </Header>
-
-        <Content style={{ margin: '16px', padding: 24, background: '#fff' }}>
-          <Breadcrumb>
-            {breadcrumbItems.map(item => (
+      <Layout
+        style={{
+          marginLeft: collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+          transition: 'margin-left 0.2s',
+        }}
+      >
+        <Header
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            height: 48,
+            lineHeight: '48px',
+            padding: '0 16px',
+            background: '#fff',
+            borderBottom: '1px solid #f0f0f0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <Breadcrumb style={{ fontSize: 13 }}>
+            {visibleItems.map((item, idx) => (
               <Breadcrumb.Item key={item.path}>
-                <Link to={item.path}>{item.breadcrumbName}</Link>
+                {idx < visibleItems.length - 1 ? (
+                  <Link to={item.path}>{item.label}</Link>
+                ) : (
+                  <span>{item.label}</span>
+                )}
               </Breadcrumb.Item>
             ))}
           </Breadcrumb>
+        </Header>
 
-          <div style={{ marginTop: '16px' }}>
-            <Outlet />
-          </div>
+        <Content style={{ margin: 12, padding: 16, background: '#fff', borderRadius: 4 }}>
+          <Outlet />
         </Content>
 
-        <Footer style={{ textAlign: 'center' }}>©2025 Company Name</Footer>
+        <Footer style={{ textAlign: 'center', padding: '10px 16px', fontSize: 12, color: '#8c8c8c' }}>
+          ©2026 ComicMn2
+        </Footer>
       </Layout>
     </Layout>
   );

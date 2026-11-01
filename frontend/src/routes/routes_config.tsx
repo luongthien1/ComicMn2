@@ -1,7 +1,12 @@
-import { DatabaseOutlined, FileOutlined, HomeOutlined, ProjectOutlined, RobotOutlined, ShareAltOutlined, ToolOutlined, UsbOutlined } from "@ant-design/icons";
+import { BookOutlined, HomeOutlined, SettingOutlined } from "@ant-design/icons";
 
 import React from "react";
 import Home from "@/routes/Home";
+import ComicList from "@/routes/Comics/List";
+import ComicDetail from "@/routes/Comics/Detail";
+import ChapterEditor from "@/routes/Comics/ChapterEditor";
+import StoryTrace from "@/routes/Comics/StoryTrace";
+import Settings from "@/routes/Settings";
 
 class NavigationItem {
     id: string;
@@ -24,7 +29,12 @@ class NavigationItem {
 }
 
 const routes_config = [
-    new NavigationItem("home-menu", "Home", "/", <HomeOutlined />, <Home/>),
+    new NavigationItem("home-menu", "Home", "/", <HomeOutlined />, <Home />),
+    new NavigationItem("comics-menu", "Truyện Tranh", "/comics", <BookOutlined />, <ComicList />),
+    new NavigationItem("comic-detail", "Chi tiết truyện", "/comics/:id", undefined, <ComicDetail />, undefined, false),
+    new NavigationItem("chapter-editor", "Viết chương", "/comics/:comicId/chapters/:chapterId", undefined, <ChapterEditor />, undefined, false),
+    new NavigationItem("story-trace", "Quá trình suy luận", "/comics/:comicId/trace", undefined, <StoryTrace />, undefined, false),
+    new NavigationItem("settings-menu", "Cài đặt", "/settings", <SettingOutlined />, <Settings />),
 ]
 
 

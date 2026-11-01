@@ -1,6 +1,6 @@
 import { Card, Row, Col } from "antd";
 import { Link, Outlet } from "react-router-dom";
-import { NavigationItem } from "../settings/routes_config";
+import { NavigationItem } from "@/routes/routes_config";
 
 const CategoryPage = ( {navigateItems: navigateItem} : {navigateItems: NavigationItem}) => {
 

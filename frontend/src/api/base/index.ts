@@ -9,8 +9,8 @@ interface RequestOptions {
 export class BaseApi {
   private baseUrl: string;
 
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string) {
+    this.baseUrl = baseUrl ?? '';
   }
 
   protected async request<T>(
@@ -41,6 +41,10 @@ export class BaseApi {
       throw new Error(
         `API ${method} ${url} failed: ${res.status} ${errorText}`
       );
+    }
+
+    if (res.status === 204 || res.headers.get('content-length') === '0') {
+      return undefined as T;
     }
 
     return res.json() as Promise<T>;

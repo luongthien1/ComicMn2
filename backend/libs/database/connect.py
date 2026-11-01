@@ -33,3 +33,11 @@ def get_connection(
 
 engine = create_engine(DATABASE_URL)
 SessionMaker = sessionmaker(bind=engine)
+
+
+def get_db():
+    db = SessionMaker()
+    try:
+        yield db
+    finally:
+        db.close()

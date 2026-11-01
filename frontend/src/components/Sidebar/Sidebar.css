@@ -27,3 +27,43 @@
   background-color: #333;
   color: #fff;
 }
+
+/* Nút thu gọn / mở rộng nằm ngay trong sidebar */
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 16px);
+  margin: 0 8px 8px;
+  padding: 6px 0;
+  border: none;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 1px;
+}
+
+/* Menu gọn hơn để vừa với sidebar hẹp */
+
+.ant-layout-sider .ant-menu-inline .ant-menu-item,
+.ant-layout-sider .ant-menu-inline .ant-menu-submenu-title {
+  font-size: 13px;
+  padding-left: 14px !important;
+}
+
+.ant-layout-sider .ant-menu-inline .ant-menu-sub .ant-menu-item {
+  padding-left: 34px !important;
+}
